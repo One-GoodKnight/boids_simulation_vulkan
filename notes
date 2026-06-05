@@ -1,0 +1,6 @@
+VkInstance - Vulkan runtime
+VkDevice - Specific GPU
+
+SwapChain - Back / Front buffer
+
+

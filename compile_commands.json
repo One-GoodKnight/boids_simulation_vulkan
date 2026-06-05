@@ -1,0 +1,38 @@
+[
+  {
+    "file": "src/main.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/main.o",
+      "src/main.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/main.o"
+  },
+  {
+    "file": "src/read_file.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/read_file.o",
+      "src/read_file.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/read_file.o"
+  }
+]
