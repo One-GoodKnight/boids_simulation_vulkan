@@ -14,7 +14,7 @@ OBJS			:= $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 DEPS			:= $(OBJS:.o=.d)
 
 CC				:= cc
-CFLAGS			:= -Wall -Wextra -g3
+CFLAGS			:= -Wall -Wextra -g3 -DDEBUG
 CPPFLAGS		:= -I$(INCLUDES) -MMD -MP
 LDFLAGS 		:= -lSDL3 -lvulkan
 

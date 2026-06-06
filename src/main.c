@@ -13,8 +13,8 @@
 /*  Config                                                             */
 /* ------------------------------------------------------------------- */
 #define APP_NAME            "Vulkan app"
-#define WIN_W               800
-#define WIN_H               600
+#define WIN_W               1200
+#define WIN_H               1200
 #define MAX_FRAMES          2
 #define BINDLESS_TEXTURES   1024
 
@@ -36,9 +36,8 @@
 /* ------------------------------------------------------------------ */
 typedef struct {
 	VkCommandBuffer cmd;
-	VkSemaphore     image_available;   /* signalled when swapchain image ready */
-	VkSemaphore     render_finished;   /* signalled when GPU done              */
-	VkFence         in_flight;         /* CPU waits on this                    */
+	VkSemaphore 	acquire_next_image; /* handed to vkAcquireNextImageKHR      */
+	VkFence         in_flight;          /* CPU waits on this                    */
 } Frame;
 
 /* ------------------------------------------------------------------ */
@@ -73,6 +72,8 @@ typedef struct {
 	VkImageView      *sc_views;
 	/* track layout per image for barrier reuse */
 	VkImageLayout    *sc_layouts;
+	VkSemaphore      *image_available;
+	VkSemaphore      *render_finished;
 
 	/* commands */
 	VkCommandPool     cmd_pool;
@@ -95,12 +96,6 @@ typedef struct {
 	VkPipelineLayout pipeline_layout;
 	VkPipeline       pipeline;
 } App;
-
-/* ================================================================== */
-/*  Forward decls                                                     */
-/* ================================================================== */
-static void create_swapchain(App *a);
-static void destroy_swapchain(App *a);
 
 /* ================================================================== */
 /*  Instance  (Vulkan 1.3 requested)                                  */
@@ -126,6 +121,10 @@ static void create_instance(App *a)
 		.pApplicationInfo        = &app_info,
 		.enabledExtensionCount   = sdl_ext_count,
 		.ppEnabledExtensionNames = sdl_exts,
+#ifdef DEBUG
+		.enabledLayerCount       = 1,
+		.ppEnabledLayerNames     = (const char *[]){ "VK_LAYER_KHRONOS_validation" },
+#endif
 	};
 
 	VK_CHECK(vkCreateInstance(&ci, NULL, &a->instance));
@@ -171,6 +170,17 @@ static void pick_physical_device(App *a)
 			a->graphics_family = (uint32_t)gfx;
 			a->present_family  = (uint32_t)pres;
 			free(devs);
+
+			VkPhysicalDeviceProperties properties;
+			vkGetPhysicalDeviceProperties(a->physical, &properties);
+			printf("=========================================\n");
+			printf(" Active Vulkan GPU: %s\n", properties.deviceName);
+			printf(" Driver Version:    %d.%d.%d\n", 
+			   VK_VERSION_MAJOR(properties.driverVersion),
+			   VK_VERSION_MINOR(properties.driverVersion),
+			   VK_VERSION_PATCH(properties.driverVersion));
+			printf("=========================================\n");
+
 			return;
 		}
 	}
@@ -382,12 +392,24 @@ static void create_swapchain(App *a)
 		};
 		VK_CHECK(vkCreateImageView(a->device, &vci, NULL, &a->sc_views[i]));
 	}
+
+	a->image_available = malloc(sizeof(VkSemaphore) * a->sc_image_count);
+	a->render_finished = malloc(sizeof(VkSemaphore) * a->sc_image_count);
+    for (uint32_t i = 0; i < a->sc_image_count; i++) {
+        VkSemaphoreCreateInfo si = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        VK_CHECK(vkCreateSemaphore(a->device, &si, NULL, &a->image_available[i]));
+		VK_CHECK(vkCreateSemaphore(a->device, &si, NULL, &a->render_finished[i]));
+    }
 }
 
 static void destroy_swapchain(App *a)
 {
 	for (uint32_t i = 0; i < a->sc_image_count; i++)
+	{
+		vkDestroySemaphore(a->device, a->image_available[i], NULL);
+		vkDestroySemaphore(a->device, a->render_finished[i], NULL);
 		vkDestroyImageView(a->device, a->sc_views[i], NULL);
+	}
 	free(a->sc_images);
 	free(a->sc_views);
 	free(a->sc_layouts);
@@ -568,12 +590,8 @@ static void create_frame_resources(App *a)
 	for (int i = 0; i < MAX_FRAMES; i++) {
 		a->frames[i].cmd = cmds[i];
 
-		VkSemaphoreCreateInfo si = {
-			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-		VK_CHECK(vkCreateSemaphore(a->device, &si, NULL,
-					&a->frames[i].image_available));
-		VK_CHECK(vkCreateSemaphore(a->device, &si, NULL,
-					&a->frames[i].render_finished));
+		VkSemaphoreCreateInfo si = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+		VK_CHECK(vkCreateSemaphore(a->device, &si, NULL, &a->frames[i].acquire_next_image));
 
 		VkFenceCreateInfo fi = {
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -645,10 +663,14 @@ static int draw_frame(App *a)
 	uint32_t img_index;
 	VkResult r = vkAcquireNextImageKHR(
 			a->device, a->swapchain, UINT64_MAX,
-			f->image_available, VK_NULL_HANDLE, &img_index);
+			f->acquire_next_image, VK_NULL_HANDLE, &img_index);
 
 	if (r == VK_ERROR_OUT_OF_DATE_KHR) return 0;
 	if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) VK_CHECK(r);
+
+	VkSemaphore tmp               = a->image_available[img_index];
+	a->image_available[img_index] = f->acquire_next_image;
+	f->acquire_next_image         = tmp;
 
 	vkResetFences(a->device, 1, &f->in_flight);
 	vkResetCommandBuffer(f->cmd, 0);
@@ -717,7 +739,7 @@ static int draw_frame(App *a)
 	/* ---- submit (Synchronization2: vkQueueSubmit2) ---------------- */
 	VkSemaphoreSubmitInfo wait_si = {
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-		.semaphore = f->image_available,
+		.semaphore = a->image_available[img_index],
 		.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 	};
 	VkCommandBufferSubmitInfo cmd_si = {
@@ -726,7 +748,7 @@ static int draw_frame(App *a)
 	};
 	VkSemaphoreSubmitInfo signal_si = {
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-		.semaphore = f->render_finished,
+		.semaphore = a->render_finished[img_index],
 		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 	};
 	VkSubmitInfo2 si2 = {
@@ -744,7 +766,7 @@ static int draw_frame(App *a)
 	VkPresentInfoKHR pi = {
 		.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.waitSemaphoreCount = 1,
-		.pWaitSemaphores    = &f->render_finished,
+		.pWaitSemaphores    = &a->render_finished[img_index],
 		.swapchainCount     = 1,
 		.pSwapchains        = &a->swapchain,
 		.pImageIndices      = &img_index,
@@ -947,11 +969,9 @@ int main(void)
 	/* cleanup */
 	vkDeviceWaitIdle(a.device);
 
-	for (int i = 0; i < MAX_FRAMES; i++) {
-		vkDestroySemaphore(a.device, a.frames[i].image_available, NULL);
-		vkDestroySemaphore(a.device, a.frames[i].render_finished, NULL);
-		vkDestroyFence    (a.device, a.frames[i].in_flight,       NULL);
-	}
+	for (int i = 0; i < MAX_FRAMES; i++)
+		vkDestroyFence (a.device, a.frames[i].in_flight, NULL);
+
 	vkDestroyCommandPool(a.device, a.cmd_pool, NULL);
 
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);

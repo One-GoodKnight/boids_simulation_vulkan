@@ -1,6 +1,8 @@
 VkInstance - Vulkan runtime
-VkDevice - Specific GPU
+VkDevice - Logical device, interface to communicate with physical device
+Families - Groups that the gpu treats differently, with different parts to go faster
 
-SwapChain - Back / Front buffer
+
+SwapChain - multi buffers, sync, os requirements
 
 
