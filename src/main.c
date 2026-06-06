@@ -19,6 +19,15 @@
 #define BINDLESS_TEXTURES   1024
 
 /* ------------------------------------------------------------------- */
+/*  Shader helpers                                                     */
+/* ------------------------------------------------------------------- */
+
+typedef struct {
+    float model_matrix[16];
+    float custom_color[4];
+} ObjectData;
+
+/* ------------------------------------------------------------------- */
 /*  Error helper                                                       */
 /* ------------------------------------------------------------------- */
 #define VK_CHECK(x)                                                     \
@@ -80,14 +89,12 @@ typedef struct {
 	Frame             frames[MAX_FRAMES];
 	uint32_t          frame_index;
 
-	/* ---- Buffer Device Address demo -------------------------------- */
-	/* A tiny host-visible buffer whose GPU address is pushed to shaders
-	   as a push constant.  Shaders can cast the uint64 to a pointer. */
-	VkBuffer          scene_buffer;
-	VkDeviceMemory    scene_memory;
-	VkDeviceAddress   scene_address;
+	/* Buffer Device Address */
+	VkBuffer          vertex_buffer;
+	VkDeviceMemory    vertex_memory;
+	VkDeviceAddress   vertex_address;
 
-	/* ---- Bindless (Descriptor Indexing) demo ----------------------- */
+	/* Bindless (Descriptor Indexing) */
 	VkDescriptorSetLayout bindless_layout;
 	VkDescriptorPool      bindless_pool;
 	VkDescriptorSet       bindless_set;
@@ -191,19 +198,21 @@ static void pick_physical_device(App *a)
 
 /* ================================================================== */
 /*  Logical device
- *
- *  We chain feature structs via pNext to enable all four modern
- *  features.  In Vulkan 1.3 these are core, but we still need to
- *  explicitly turn them on through VkPhysicalDeviceVulkan12Features
- *  and VkPhysicalDeviceVulkan13Features.
  * ================================================================== */
 static void create_device(App *a)
 {
 	/* ---- feature structs (chained) -------------------------------- */
 
+	VkPhysicalDeviceFeatures2 base_features = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .features.shaderInt64 = VK_TRUE, /* BDA pointers */
+    };
+
 	/* Vulkan 1.1: shader draw params */
 	VkPhysicalDeviceVulkan11Features feat11 = {
-		.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+		.pNext = &base_features,
+
 		.shaderDrawParameters = VK_TRUE,
 	};
 
@@ -214,6 +223,7 @@ static void create_device(App *a)
 
 		/* Buffer Device Address */
 		.bufferDeviceAddress = VK_TRUE,
+		.scalarBlockLayout = VK_TRUE,
 
 		/* Descriptor Indexing ("bindless") */
 		.descriptorIndexing                                = VK_TRUE,
@@ -444,10 +454,20 @@ static uint32_t find_memory_type(App *a, uint32_t filter,
 	exit(1);
 }
 
-static void create_scene_buffer(App *a)
+static void create_vertex_buffer(App *a)
 {
-	/* 256 bytes is enough for a small scene-data struct */
-	VkDeviceSize size = 256;
+	typedef struct {
+		float position[3];
+		float color[3];
+	} Vertex;
+
+	Vertex vertices[3] = {
+		{{ 0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+        {{ 0.5f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f,  0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}},
+	};
+
+	VkDeviceSize size = sizeof(vertices);
 
 	VkBufferCreateInfo bi = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -456,10 +476,10 @@ static void create_scene_buffer(App *a)
 			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, /* <-- key flag */
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 	};
-	VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, &a->scene_buffer));
+	VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, &a->vertex_buffer));
 
 	VkMemoryRequirements mr;
-	vkGetBufferMemoryRequirements(a->device, a->scene_buffer, &mr);
+	vkGetBufferMemoryRequirements(a->device, a->vertex_buffer, &mr);
 
 	/* For BDA the memory must be allocated with the device_address flag */
 	VkMemoryAllocateFlagsInfo maf = {
@@ -475,22 +495,24 @@ static void create_scene_buffer(App *a)
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
 	};
-	VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, &a->scene_memory));
-	VK_CHECK(vkBindBufferMemory(a->device, a->scene_buffer,
-				a->scene_memory, 0));
+	VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, &a->vertex_memory));
+	VK_CHECK(vkBindBufferMemory(a->device, a->vertex_buffer, a->vertex_memory, 0));
+
+	/* upload vertices */
+    void *mapped;
+    VK_CHECK(vkMapMemory(a->device, a->vertex_memory, 0, size, 0, &mapped));
+    memcpy(mapped, vertices, size);
+    vkUnmapMemory(a->device, a->vertex_memory);
 
 	/* Get the 64-bit GPU pointer */
 	VkBufferDeviceAddressInfo bdai = {
 		.sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = a->scene_buffer,
+		.buffer = a->vertex_buffer,
 	};
-	a->scene_address = vkGetBufferDeviceAddress(a->device, &bdai);
+	a->vertex_address = vkGetBufferDeviceAddress(a->device, &bdai);
 
 	printf("Scene buffer GPU address: 0x%016llx\n",
-			(unsigned long long)a->scene_address);
-	/* A real shader would receive this via:
-	   layout(push_constant) uniform PC { uint64_t scene_ptr; };
-	   and then cast: SceneData *scene = (SceneData *)scene_ptr;      */
+			(unsigned long long)a->vertex_address);
 }
 
 /* ================================================================== */
@@ -725,6 +747,9 @@ static int draw_frame(App *a)
 	VkRect2D   scissor  = { {0,0}, a->sc_extent };
 
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline);
+	vkCmdPushConstants(f->cmd, a->pipeline_layout,
+                   VK_SHADER_STAGE_VERTEX_BIT,
+                   0, sizeof(uint64_t), &a->vertex_address);
 	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
 	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
 	vkCmdDraw(f->cmd, 3, 1, 0, 0);  /* 3 vertices, 1 instance */
@@ -815,13 +840,13 @@ static void create_graphics_pipeline(App *a)
             .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage  = VK_SHADER_STAGE_VERTEX_BIT,
             .module = vert_module,
-            .pName  = "main",    /* must match [shader("vertex")] fn name */
+            .pName  = "main",
         },
         {
             .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
             .module = frag_module,
-            .pName  = "main",  /* must match [shader("fragment")] fn name */
+            .pName  = "main",
         },
     };
 
@@ -880,8 +905,16 @@ static void create_graphics_pipeline(App *a)
     };
 
 	// pipeline layout
+	VkPushConstantRange pc_range = {
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.offset     = 0,
+    	.size       = sizeof(uint64_t),
+	};
+
     VkPipelineLayoutCreateInfo layout_ci = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.pushConstantRangeCount = 1,
+    	.pPushConstantRanges    = &pc_range,
     };
     VK_CHECK(vkCreatePipelineLayout(a->device, &layout_ci, NULL, &a->pipeline_layout));
 
@@ -943,7 +976,7 @@ int main(void)
 	pick_physical_device(&a);
 	create_device(&a);
 	create_swapchain(&a);
-	create_scene_buffer(&a);
+	create_vertex_buffer(&a);
 	create_bindless_descriptors(&a);
 	create_graphics_pipeline(&a);
 	create_frame_resources(&a);
@@ -984,8 +1017,8 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
-	vkFreeMemory  (a.device, a.scene_memory, NULL);
-	vkDestroyBuffer(a.device, a.scene_buffer, NULL);
+	vkFreeMemory  (a.device, a.vertex_memory, NULL);
+	vkDestroyBuffer(a.device, a.vertex_buffer, NULL);
 
 	destroy_swapchain(&a);
 	vkDestroyDevice    (a.device,   NULL);
