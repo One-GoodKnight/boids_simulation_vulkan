@@ -1,6 +1,6 @@
 struct Vertex {
-    float3 position;
-    float3 color;
+    float4 position;
+    float4 color;
 };
 
 struct PushConstants {
@@ -11,7 +11,7 @@ struct PushConstants {
 
 struct VertexStageOutput {
     float4 position : SV_Position;
-    float3 color    : COLOR;
+    float4 color    : COLOR;
 };
 
 [shader("vertex")]
@@ -21,12 +21,12 @@ VertexStageOutput vertexMain(uint vertexID : SV_VertexID)
     Vertex v = vertices[vertexID];
 
     VertexStageOutput output;
-    output.position = float4(v.position, 1.0);
+    output.position = float4(v.position);
     output.color    = v.color;
     return output;
 }
 
 [shader("fragment")]
 float4 fragmentMain(VertexStageOutput input) : SV_Target {
-    return float4(input.color, 1.0);
+    return float4(input.color);
 }

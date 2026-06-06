@@ -90,6 +90,7 @@ typedef struct {
 	uint32_t          frame_index;
 
 	/* Buffer Device Address */
+	int               vertex_buffer_count;
 	VkBuffer          vertex_buffer;
 	VkDeviceMemory    vertex_memory;
 	VkDeviceAddress   vertex_address;
@@ -457,17 +458,58 @@ static uint32_t find_memory_type(App *a, uint32_t filter,
 static void create_vertex_buffer(App *a)
 {
 	typedef struct {
-		float position[3];
-		float color[3];
+		float position[4];
+		float color[4];
 	} Vertex;
 
-	Vertex vertices[3] = {
-		{{ 0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f,  0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}},
+	/* 36 vertices defining the 6 faces of a 3D Cube */
+	Vertex vertices[36] = {
+		/* Front face */
+		{{-0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{-0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+		{{-0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+		/* Back face */
+		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+		/* Top face */
+		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+		{{-0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+		/* Bottom face */
+		{{-0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
+		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
+		{{-0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
+		{{-0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
+		/* Right face */
+		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
+		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
+		/* Left face */
+		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
+		{{-0.5f, -0.5f,  0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
+		{{-0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
+		{{-0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
+		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
+		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
 	};
 
 	VkDeviceSize size = sizeof(vertices);
+	a->vertex_buffer_count = size / sizeof(Vertex);
 
 	VkBufferCreateInfo bi = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -752,7 +794,7 @@ static int draw_frame(App *a)
                    0, sizeof(uint64_t), &a->vertex_address);
 	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
 	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
-	vkCmdDraw(f->cmd, 3, 1, 0, 0);  /* 3 vertices, 1 instance */
+	vkCmdDraw(f->cmd, a->vertex_buffer_count, 1, 0, 0);  /* 3 vertices, 1 instance */
 
 	a->fn_CmdEndRendering(f->cmd);
 
