@@ -201,9 +201,16 @@ static void create_device(App *a)
 {
 	/* ---- feature structs (chained) -------------------------------- */
 
+	/* Vulkan 1.1: shader draw params */
+	VkPhysicalDeviceVulkan11Features feat11 = {
+		.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+		.shaderDrawParameters = VK_TRUE,
+	};
+
 	/* Vulkan 1.2: buffer device address + descriptor indexing */
 	VkPhysicalDeviceVulkan12Features feat12 = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.pNext = &feat11,
 
 		/* Buffer Device Address */
 		.bufferDeviceAddress = VK_TRUE,
