@@ -7,7 +7,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "read_file.h"
+#include "geometry.h"
+#include "load_files.h"
 
 /* ------------------------------------------------------------------- */
 /*  Config                                                             */
@@ -17,15 +18,6 @@
 #define WIN_H               1200
 #define MAX_FRAMES          2
 #define BINDLESS_TEXTURES   1024
-
-/* ------------------------------------------------------------------- */
-/*  Shader helpers                                                     */
-/* ------------------------------------------------------------------- */
-
-typedef struct {
-    float model_matrix[16];
-    float custom_color[4];
-} ObjectData;
 
 /* ------------------------------------------------------------------- */
 /*  Error helper                                                       */
@@ -90,10 +82,14 @@ typedef struct {
 	uint32_t          frame_index;
 
 	/* Buffer Device Address */
-	int               vertex_buffer_count;
 	VkBuffer          vertex_buffer;
 	VkDeviceMemory    vertex_memory;
 	VkDeviceAddress   vertex_address;
+
+	VkBuffer          index_buffer;
+	VkDeviceMemory    index_memory;
+
+	Mesh             mesh;
 
 	/* Bindless (Descriptor Indexing) */
 	VkDescriptorSetLayout bindless_layout;
@@ -455,65 +451,16 @@ static uint32_t find_memory_type(App *a, uint32_t filter,
 	exit(1);
 }
 
-static void create_vertex_buffer(App *a)
+static void upload_mesh(App *a)
 {
-	typedef struct {
-		float position[4];
-		float color[4];
-	} Vertex;
+	Mesh *m = &a->mesh;
 
-	/* 36 vertices defining the 6 faces of a 3D Cube */
-	Vertex vertices[36] = {
-		/* Front face */
-		{{-0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{-0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-		{{-0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-		/* Back face */
-		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-		/* Top face */
-		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-		{{-0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-		/* Bottom face */
-		{{-0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-		{{-0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-		{{-0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}},
-		/* Right face */
-		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f,  0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f,  0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f, -0.5f,  0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
-		{{ 0.5f, -0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}},
-		/* Left face */
-		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
-		{{-0.5f, -0.5f,  0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
-		{{-0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
-		{{-0.5f,  0.5f,  0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
-		{{-0.5f,  0.5f, -0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
-		{{-0.5f, -0.5f, -0.5f, 1.0f}, {0.0f, 1.01f, 1.0f, 1.0f}},
-	};
-
-	VkDeviceSize size = sizeof(vertices);
-	a->vertex_buffer_count = size / sizeof(Vertex);
+	/* Vertex buffer */
+	VkDeviceSize vert_size = sizeof(Vertex) * m->vertex_count;
 
 	VkBufferCreateInfo bi = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size  = size,
+		.size  = vert_size,
 		.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, /* <-- key flag */
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -540,10 +487,9 @@ static void create_vertex_buffer(App *a)
 	VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, &a->vertex_memory));
 	VK_CHECK(vkBindBufferMemory(a->device, a->vertex_buffer, a->vertex_memory, 0));
 
-	/* upload vertices */
     void *mapped;
-    VK_CHECK(vkMapMemory(a->device, a->vertex_memory, 0, size, 0, &mapped));
-    memcpy(mapped, vertices, size);
+    VK_CHECK(vkMapMemory(a->device, a->vertex_memory, 0, vert_size, 0, &mapped));
+    memcpy(mapped, m->vertices, vert_size);
     vkUnmapMemory(a->device, a->vertex_memory);
 
 	/* Get the 64-bit GPU pointer */
@@ -553,8 +499,25 @@ static void create_vertex_buffer(App *a)
 	};
 	a->vertex_address = vkGetBufferDeviceAddress(a->device, &bdai);
 
-	printf("Scene buffer GPU address: 0x%016llx\n",
-			(unsigned long long)a->vertex_address);
+	/* Index buffer */
+	VkDeviceSize idx_size = sizeof(uint32_t) * m->index_count;
+
+	bi.size  = idx_size;
+    bi.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, &a->index_buffer));
+
+	vkGetBufferMemoryRequirements(a->device, a->index_buffer, &mr);
+    mai.allocationSize  = mr.size;
+    mai.memoryTypeIndex = find_memory_type(a, mr.memoryTypeBits,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	mai.pNext = NULL;
+    VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, &a->index_memory));
+    VK_CHECK(vkBindBufferMemory(a->device, a->index_buffer, a->index_memory, 0));
+
+	VK_CHECK(vkMapMemory(a->device, a->index_memory, 0, idx_size, 0, &mapped));
+    memcpy(mapped, m->indices, idx_size);
+    vkUnmapMemory(a->device, a->index_memory);
 }
 
 /* ================================================================== */
@@ -794,7 +757,8 @@ static int draw_frame(App *a)
                    0, sizeof(uint64_t), &a->vertex_address);
 	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
 	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
-	vkCmdDraw(f->cmd, a->vertex_buffer_count, 1, 0, 0);  /* 3 vertices, 1 instance */
+	vkCmdBindIndexBuffer(f->cmd, a->index_buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(f->cmd, a->mesh.index_count, 1, 0, 0, 0);
 
 	a->fn_CmdEndRendering(f->cmd);
 
@@ -857,8 +821,8 @@ static void create_graphics_pipeline(App *a)
 {
     /* ---- load SPIR-V -------------------------------------------- */
     size_t   vert_size, frag_size;
-    uint32_t *vert_code = load_spirv_file_c("shaders/triangle.vert.spv", &vert_size);
-    uint32_t *frag_code = load_spirv_file_c("shaders/triangle.frag.spv", &frag_size);
+    uint32_t *vert_code = load_spirv_file("assets/shaders/triangle.vert.spv", &vert_size);
+    uint32_t *frag_code = load_spirv_file("assets/shaders/triangle.frag.spv", &frag_size);
 
     VkShaderModule vert_module, frag_module;
 
@@ -1018,7 +982,8 @@ int main(void)
 	pick_physical_device(&a);
 	create_device(&a);
 	create_swapchain(&a);
-	create_vertex_buffer(&a);
+	a.mesh = load_mesh_from_gltf_file("assets/models/cube.glb");
+	upload_mesh(&a);
 	create_bindless_descriptors(&a);
 	create_graphics_pipeline(&a);
 	create_frame_resources(&a);
@@ -1051,6 +1016,9 @@ int main(void)
 	/* cleanup */
 	vkDeviceWaitIdle(a.device);
 
+	vkDestroyPipeline      (a.device, a.pipeline,        NULL);
+	vkDestroyPipelineLayout(a.device, a.pipeline_layout, NULL);
+
 	for (int i = 0; i < MAX_FRAMES; i++)
 		vkDestroyFence (a.device, a.frames[i].in_flight, NULL);
 
@@ -1059,6 +1027,8 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
+	vkFreeMemory   (a.device, a.index_memory, NULL);
+	vkDestroyBuffer(a.device, a.index_buffer, NULL);
 	vkFreeMemory  (a.device, a.vertex_memory, NULL);
 	vkDestroyBuffer(a.device, a.vertex_buffer, NULL);
 
@@ -1066,9 +1036,6 @@ int main(void)
 	vkDestroyDevice    (a.device,   NULL);
 	vkDestroySurfaceKHR(a.instance, a.surface, NULL);
 	vkDestroyInstance  (a.instance, NULL);
-
-	vkDestroyPipeline      (a.device, a.pipeline,        NULL);
-	vkDestroyPipelineLayout(a.device, a.pipeline_layout, NULL);
 
 	SDL_DestroyWindow(a.window);
 	SDL_Quit();

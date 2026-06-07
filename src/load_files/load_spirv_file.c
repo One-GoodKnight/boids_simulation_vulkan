@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-uint32_t* load_spirv_file_c(const char* filename, size_t* out_size) {
+uint32_t* load_spirv_file(const char* filename, size_t* out_size)
+{
     // Read-Binary
     FILE* file = fopen(filename, "rb");
     if (!file)
