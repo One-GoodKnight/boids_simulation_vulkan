@@ -947,6 +947,7 @@ int main(void)
 		uint64_t cur_time = SDL_GetTicksNS();
 		delta_time = (float)(cur_time - last_time) / 1000000000.0f;
 		last_time = cur_time;
+		printf("FPS: %d\n", (int)(1.0f / delta_time));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {

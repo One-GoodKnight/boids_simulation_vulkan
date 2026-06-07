@@ -32,11 +32,11 @@ void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp)
 	glm_mat4_identity(model);
 
 	// forward vector
-	float yaw_r   = glm_rad(cam->yaw);
-    float pitch_r = glm_rad(cam->pitch);
-    cam->direction[0] = cos(pitch_r) * cos(yaw_r);
-    cam->direction[1] = sin(pitch_r);
-    cam->direction[2] = cos(pitch_r) * sin(yaw_r);
+	float yaw   = glm_rad(cam->yaw);
+    float pitch = glm_rad(cam->pitch);
+    cam->direction[0] = cos(pitch) * cos(yaw);
+    cam->direction[1] = sin(pitch);
+    cam->direction[2] = cos(pitch) * sin(yaw);
 	glm_vec3_normalize(cam->direction);
 
 	vec3 up = { 0.0f, 1.0f, 0.0f };
