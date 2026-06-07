@@ -15,11 +15,11 @@ OBJS			:= $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 DEPS			:= $(OBJS:.o=.d)
 
 CC				:= cc
-CFLAGS			:= -Wall -Wextra -g3 -DDEBUG
+CFLAGS			:= -Wall -Wextra -g3 -DDEBUG -DWIREFRAME
 CPPFLAGS		:= -I$(INCLUDES) -MMD -MP
 LDFLAGS 		:= -lSDL3 -lvulkan -lcglm -lm
 
-all: $(NAME)
+all: $(NAME) Makefile
 
 $(NAME): $(OBJS)
 	$(CC) $^ $(LDFLAGS) -o $@

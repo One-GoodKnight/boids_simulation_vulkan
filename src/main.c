@@ -209,6 +209,7 @@ static void create_device(t_app *a)
 	VkPhysicalDeviceFeatures2 base_features = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .features.shaderInt64 = VK_TRUE, /* BDA pointers */
+		.features.fillModeNonSolid = VK_TRUE, /* Wireframe */
     };
 
 	/* Vulkan 1.1: shader draw params */
@@ -919,7 +920,11 @@ static void create_graphics_pipeline(t_app *a)
 	// rasterizer
 	VkPipelineRasterizationStateCreateInfo rasterizer = {
         .sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+#ifndef WIREFRAME
         .polygonMode = VK_POLYGON_MODE_FILL,
+# else
+        .polygonMode = VK_POLYGON_MODE_LINE,
+#endif
         .cullMode    = VK_CULL_MODE_NONE,   /* no backface culling for now */
         .frontFace   = VK_FRONT_FACE_CLOCKWISE,
         .lineWidth   = 1.0f,
