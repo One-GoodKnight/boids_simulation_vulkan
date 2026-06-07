@@ -5,6 +5,7 @@ BUILD_DIR		:= .build
 SRC_DIR			:= src
 SRCS			:= 								\
 	main.c										\
+	camera.c									\
 	load_files/load_gltf_file.c					\
 	load_files/load_spirv_file.c				\
 

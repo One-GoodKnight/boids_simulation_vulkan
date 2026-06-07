@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "app.h"
+#include "camera.h"
 #include "load_files.h"
 #include "shader_types.h"
 
@@ -948,12 +949,14 @@ int main(void)
 	create_graphics_pipeline(&a);
 	create_frame_resources(&a);
 
+	init_camera(&a);
+
 	/* main loop */
 	bool running = true;
 	while (running) {
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
-			if (e.type == SDL_EVENT_QUIT)
+			if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE))
 				running = false;
 			if (e.type == SDL_EVENT_WINDOW_RESIZED ||
 					e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
@@ -980,7 +983,10 @@ int main(void)
 	vkDestroyPipelineLayout(a.device, a.pipeline_layout, NULL);
 
 	for (int i = 0; i < MAX_FRAMES; i++)
+	{
 		vkDestroyFence (a.device, a.frames[i].in_flight, NULL);
+		vkDestroySemaphore(a.device, a.frames[i].acquire_next_image, NULL);
+	}
 
 	vkDestroyCommandPool(a.device, a.cmd_pool, NULL);
 
