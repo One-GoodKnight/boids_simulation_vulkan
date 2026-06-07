@@ -7,28 +7,23 @@ void init_camera(t_camera *cam)
 	cam->position[0] = 0.0f;
 	cam->position[1] = 2.0f;
 	cam->position[2] = 6.0f;
-	glm_mat4_identity(cam->rotation);
-	glm_vec3_copy((vec3){ 0.0f, 0.0f, -1.0f }, cam->direction);
+	cam->yaw = -90.0f;
+	cam->pitch = 0.0f;
 }
 
 void camera_rotate(t_camera *cam, float dx, float dy)
 {
-	mat4 rot_x, rot_y;
-
 	dx *= SENSITIVITY;
 	dy *= SENSITIVITY;
 
-	vec3 up = { 0.0f, 1.0f, 0.0f };
-	glm_rotate_make(rot_x, dx, up);
-	glm_mat4_mul(rot_x, cam->rotation, cam->rotation);
+	cam->yaw += dx;
+	cam->pitch -= dy;
 
-	vec3 local_right = {
-		cam->rotation[0][0],
-		cam->rotation[1][0],
-		cam->rotation[2][0]
-	};
-	glm_rotate_make(rot_y, dy, local_right);
-    glm_mat4_mul(rot_y, cam->rotation, cam->rotation);
+	if (cam->pitch < -89.9f)
+		cam->pitch = -89.9f;
+
+	if (cam->pitch > 89.9f)
+		cam->pitch = 89.9f;
 }
 
 void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp)
@@ -37,9 +32,11 @@ void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp)
 	glm_mat4_identity(model);
 
 	// forward vector
-	cam->direction[0] = -cam->rotation[0][2];
-	cam->direction[1] = -cam->rotation[1][2];
-	cam->direction[2] = -cam->rotation[2][2];
+	float yaw_r   = glm_rad(cam->yaw);
+    float pitch_r = glm_rad(cam->pitch);
+    cam->direction[0] = cos(pitch_r) * cos(yaw_r);
+    cam->direction[1] = sin(pitch_r);
+    cam->direction[2] = cos(pitch_r) * sin(yaw_r);
 	glm_vec3_normalize(cam->direction);
 
 	vec3 up = { 0.0f, 1.0f, 0.0f };

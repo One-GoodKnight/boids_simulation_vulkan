@@ -918,6 +918,7 @@ int main(void)
 		fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
 		return 1;
 	}
+	SDL_SetWindowRelativeMouseMode(a.window, true);
 
 	create_instance(&a);
 
@@ -937,10 +938,16 @@ int main(void)
 	create_frame_resources(&a);
 
 	init_camera(&a.camera);
+	uint64_t last_time = SDL_GetTicksNS();
+	float delta_time = 1.0f / 60.0f;
 
 	/* main loop */
 	bool running = true;
 	while (running) {
+		uint64_t cur_time = SDL_GetTicksNS();
+		delta_time = (float)(cur_time - last_time) / 1000000000.0f;
+		last_time = cur_time;
+
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
 			if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE))
@@ -952,7 +959,7 @@ int main(void)
 				create_swapchain(&a);
 			}
 			if (e.type == SDL_EVENT_MOUSE_MOTION)
-				camera_rotate(&a.camera, e.motion.xrel, e.motion.yrel);
+				camera_rotate(&a.camera, e.motion.xrel * delta_time, e.motion.yrel * delta_time);
 		}
 
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);

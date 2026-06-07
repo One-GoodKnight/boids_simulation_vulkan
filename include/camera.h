@@ -3,12 +3,13 @@
 
 # include "cglm/cglm.h"
 
-# define SENSITIVITY 0.01
+# define SENSITIVITY 25
 
 typedef struct s_camera {
 	vec3              position;
 	vec3              direction;
-	mat4              rotation;
+	float             yaw;
+	float             pitch;
 } t_camera;
 
 void init_camera(t_camera *cam);
