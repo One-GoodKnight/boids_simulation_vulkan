@@ -1,9 +1,11 @@
 #ifndef CAMERA_H
 # define CAMERA_H
 
+# include <SDL3/SDL_keycode.h>
 # include "cglm/cglm.h"
 
-# define SENSITIVITY 25
+# define SENSITIVITY 40
+# define MOVE_SPEED 10
 
 typedef struct s_camera {
 	vec3              position;
@@ -14,6 +16,7 @@ typedef struct s_camera {
 
 void init_camera(t_camera *cam);
 void camera_rotate(t_camera *cam, float dx, float dy);
+void camera_move(t_camera *cam, const bool *keyboard_state, float dt);
 void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp);
 
 #endif

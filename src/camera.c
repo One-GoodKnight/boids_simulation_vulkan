@@ -1,4 +1,7 @@
+#include <SDL3/SDL_scancode.h>
 #include <cglm/cglm.h>
+#include <cglm/vec3.h>
+#include <stdint.h>
 
 #include "camera.h"
 
@@ -24,6 +27,40 @@ void camera_rotate(t_camera *cam, float dx, float dy)
 
 	if (cam->pitch > 89.9f)
 		cam->pitch = 89.9f;
+}
+
+void camera_move(t_camera *cam, const bool *keyboard_state, float dt)
+{
+	vec3 input_vector = {0};
+
+	input_vector[2] += keyboard_state[SDL_SCANCODE_W]; /* forward is -Z */
+	input_vector[2] -= keyboard_state[SDL_SCANCODE_S];
+	input_vector[0] += keyboard_state[SDL_SCANCODE_D];
+	input_vector[0] -= keyboard_state[SDL_SCANCODE_A];
+
+	input_vector[1] += keyboard_state[SDL_SCANCODE_SPACE];
+	input_vector[1] -= keyboard_state[SDL_SCANCODE_LSHIFT];
+
+	glm_vec3_normalize(input_vector);
+
+	vec3 forward = {
+		cam->direction[0],
+		cam->direction[1],
+		cam->direction[2]
+	};
+
+	vec3 up = { 0.0f, 1.0f, 0.0f };
+	vec3 right;
+	glm_vec3_cross(forward, up, right);
+
+	vec3 world_direction = {0};
+	glm_vec3_muladds(forward, input_vector[2], world_direction);
+	glm_vec3_muladds(right, input_vector[0], world_direction);
+	glm_vec3_muladds(up, input_vector[1], world_direction);
+
+	cam->position[0] += world_direction[0] * MOVE_SPEED * dt;
+	cam->position[1] += world_direction[1] * MOVE_SPEED * dt;
+	cam->position[2] += world_direction[2] * MOVE_SPEED * dt;
 }
 
 void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp)

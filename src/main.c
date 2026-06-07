@@ -1,3 +1,4 @@
+#include <SDL3/SDL_events.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -939,15 +940,15 @@ int main(void)
 
 	init_camera(&a.camera);
 	uint64_t last_time = SDL_GetTicksNS();
-	float delta_time = 1.0f / 60.0f;
+	float dt = 1.0f / 60.0f;
 
 	/* main loop */
 	bool running = true;
 	while (running) {
 		uint64_t cur_time = SDL_GetTicksNS();
-		delta_time = (float)(cur_time - last_time) / 1000000000.0f;
+		dt = (float)(cur_time - last_time) / 1000000000.0f;
 		last_time = cur_time;
-		printf("FPS: %d\n", (int)(1.0f / delta_time));
+		//printf("FPS: %d\n", (int)(1.0f / delta_time));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
@@ -960,8 +961,11 @@ int main(void)
 				create_swapchain(&a);
 			}
 			if (e.type == SDL_EVENT_MOUSE_MOTION)
-				camera_rotate(&a.camera, e.motion.xrel * delta_time, e.motion.yrel * delta_time);
+				camera_rotate(&a.camera, e.motion.xrel * dt, e.motion.yrel * dt);
 		}
+
+		const bool *keyboard_state = SDL_GetKeyboardState(NULL);
+		camera_move(&a.camera, keyboard_state, dt);
 
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);
 		if (wf & SDL_WINDOW_MINIMIZED) { SDL_Delay(16); continue; }
