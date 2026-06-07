@@ -7,6 +7,7 @@
 
 # include <cglm/cglm.h>
 
+#include "camera.h"
 # include "geometry.h"
 
 /* ------------------------------------------------------------------- */
@@ -90,10 +91,7 @@ typedef struct s_app {
 	VkPipelineLayout  pipeline_layout;
 	VkPipeline        pipeline;
 
-	/* Camera */
-	vec3              cam_pos;
-	vec3              cam_dir;
-	mat4              cam_rot;
+	t_camera          camera;
 } t_app;
 
 #endif

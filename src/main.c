@@ -687,21 +687,8 @@ static int draw_frame(t_app *a)
 
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline);
 
-	mat4 model, view, proj, mvp;
-
-	glm_mat4_identity(model);
-
-	vec3 eye    = {3.0f, 4.0f, -5.0f};
-	vec3 center = {1.0f, 0.0f,  0.0f};
-	vec3 up     = {0.0f, 1.0f,  0.0f};
-	glm_lookat(eye, center, up, view);
-
-	float aspect = (float)a->sc_extent.width / (float)a->sc_extent.height;
-	glm_perspective(glm_rad(60.0f), aspect, 0.1f, 100.0f, proj);
-	proj[1][1] *= -1;   /* opengl and vulkans y's are flipped */
-
-	glm_mat4_mul(proj, view, mvp);
-	glm_mat4_mul(mvp, model, mvp);
+	mat4 mvp;
+	get_mvp(&a->camera, (float)a->sc_extent.width, (float)a->sc_extent.height, mvp);
 
 	t_push_constants pc = {0};
 	memcpy(pc.mvp, mvp, sizeof(mat4));
@@ -949,7 +936,7 @@ int main(void)
 	create_graphics_pipeline(&a);
 	create_frame_resources(&a);
 
-	init_camera(&a);
+	init_camera(&a.camera);
 
 	/* main loop */
 	bool running = true;
@@ -964,6 +951,8 @@ int main(void)
 				destroy_swapchain(&a);
 				create_swapchain(&a);
 			}
+			if (e.type == SDL_EVENT_MOUSE_MOTION)
+				camera_rotate(&a.camera, e.motion.xrel, e.motion.yrel);
 		}
 
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);
