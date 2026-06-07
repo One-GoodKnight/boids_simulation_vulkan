@@ -17,7 +17,7 @@ DEPS			:= $(OBJS:.o=.d)
 CC				:= cc
 CFLAGS			:= -Wall -Wextra -g3 -DDEBUG
 CPPFLAGS		:= -I$(INCLUDES) -MMD -MP
-LDFLAGS 		:= -lSDL3 -lvulkan
+LDFLAGS 		:= -lSDL3 -lvulkan -lcglm -lm
 
 all: $(NAME)
 

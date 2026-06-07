@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#include <cglm/cglm.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,7 @@
 
 #include "geometry.h"
 #include "load_files.h"
+#include "shader_types.h"
 
 /* ------------------------------------------------------------------- */
 /*  Config                                                             */
@@ -35,16 +37,16 @@
 /* ------------------------------------------------------------------ */
 /*  Per-frame resources                                               */
 /* ------------------------------------------------------------------ */
-typedef struct {
+typedef struct s_frame {
 	VkCommandBuffer cmd;
 	VkSemaphore 	acquire_next_image; /* handed to vkAcquireNextImageKHR      */
 	VkFence         in_flight;          /* CPU waits on this                    */
-} Frame;
+} t_frame;
 
 /* ------------------------------------------------------------------ */
 /*  Application state                                                 */
 /* ------------------------------------------------------------------ */
-typedef struct {
+typedef struct s_app {
 	SDL_Window       *window;
 
 	/* core Vulkan objects */
@@ -78,7 +80,7 @@ typedef struct {
 
 	/* commands */
 	VkCommandPool     cmd_pool;
-	Frame             frames[MAX_FRAMES];
+	t_frame             frames[MAX_FRAMES];
 	uint32_t          frame_index;
 
 	/* Buffer Device Address */
@@ -89,7 +91,11 @@ typedef struct {
 	VkBuffer          index_buffer;
 	VkDeviceMemory    index_memory;
 
-	Mesh             mesh;
+	VkBuffer          scene_buffer;
+	VkDeviceMemory    scene_memory;
+	VkDeviceAddress   scene_address;
+
+	Mesh              mesh;
 
 	/* Bindless (Descriptor Indexing) */
 	VkDescriptorSetLayout bindless_layout;
@@ -99,12 +105,12 @@ typedef struct {
 	/* Pipeline */
 	VkPipelineLayout pipeline_layout;
 	VkPipeline       pipeline;
-} App;
+} t_app;
 
 /* ================================================================== */
 /*  Instance  (Vulkan 1.3 requested)                                  */
 /* ================================================================== */
-static void create_instance(App *a)
+static void create_instance(t_app *a)
 {
 	uint32_t sdl_ext_count = 0;
 	const char * const *sdl_exts =
@@ -137,7 +143,7 @@ static void create_instance(App *a)
 /* ================================================================== */
 /*  Physical device selection                                          */
 /* ================================================================== */
-static void pick_physical_device(App *a)
+static void pick_physical_device(t_app *a)
 {
 	uint32_t count = 0;
 	vkEnumeratePhysicalDevices(a->instance, &count, NULL);
@@ -196,7 +202,7 @@ static void pick_physical_device(App *a)
 /* ================================================================== */
 /*  Logical device
  * ================================================================== */
-static void create_device(App *a)
+static void create_device(t_app *a)
 {
 	/* ---- feature structs (chained) -------------------------------- */
 
@@ -290,7 +296,7 @@ static void create_device(App *a)
 /* ================================================================== */
 /*  Swapchain (no render pass / framebuffers needed with dynrender)    */
 /* ================================================================== */
-static VkSurfaceFormatKHR choose_format(App *a)
+static VkSurfaceFormatKHR choose_format(t_app *a)
 {
 	uint32_t n = 0;
 	vkGetPhysicalDeviceSurfaceFormatsKHR(a->physical, a->surface, &n, NULL);
@@ -307,7 +313,7 @@ static VkSurfaceFormatKHR choose_format(App *a)
 	return chosen;
 }
 
-static VkPresentModeKHR choose_present_mode(App *a)
+static VkPresentModeKHR choose_present_mode(t_app *a)
 {
 	uint32_t n = 0;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(
@@ -325,7 +331,7 @@ static VkPresentModeKHR choose_present_mode(App *a)
 	return chosen;
 }
 
-static void create_swapchain(App *a)
+static void create_swapchain(t_app *a)
 {
 	VkSurfaceCapabilitiesKHR caps;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -416,7 +422,7 @@ static void create_swapchain(App *a)
     }
 }
 
-static void destroy_swapchain(App *a)
+static void destroy_swapchain(t_app *a)
 {
 	for (uint32_t i = 0; i < a->sc_image_count; i++)
 	{
@@ -438,7 +444,7 @@ static void destroy_swapchain(App *a)
  *  retrieved with vkGetBufferDeviceAddress and would be pushed to a
  *  shader via a push constant.
  * ================================================================== */
-static uint32_t find_memory_type(App *a, uint32_t filter,
+static uint32_t find_memory_type(t_app *a, uint32_t filter,
 		VkMemoryPropertyFlags flags)
 {
 	VkPhysicalDeviceMemoryProperties mp;
@@ -451,73 +457,86 @@ static uint32_t find_memory_type(App *a, uint32_t filter,
 	exit(1);
 }
 
-static void upload_mesh(App *a)
+static void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
+                          bool device_address, VkBuffer *buffer, VkDeviceMemory *memory)
 {
-	Mesh *m = &a->mesh;
+    VkBufferCreateInfo bi = {
+        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size        = size,
+        .usage       = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, buffer));
 
-	/* Vertex buffer */
-	VkDeviceSize vert_size = sizeof(Vertex) * m->vertex_count;
+    VkMemoryRequirements mr;
+    vkGetBufferMemoryRequirements(a->device, *buffer, &mr);
 
-	VkBufferCreateInfo bi = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size  = vert_size,
-		.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, /* <-- key flag */
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-	};
-	VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, &a->vertex_buffer));
+    VkMemoryAllocateFlagsInfo maf = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+    };
+    VkMemoryAllocateInfo mai = {
+        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext           = device_address ? &maf : NULL,
+        .allocationSize  = mr.size,
+        .memoryTypeIndex = find_memory_type(a, mr.memoryTypeBits,
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+    };
+    VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, memory));
+    VK_CHECK(vkBindBufferMemory(a->device, *buffer, *memory, 0));
+}
 
-	VkMemoryRequirements mr;
-	vkGetBufferMemoryRequirements(a->device, a->vertex_buffer, &mr);
-
-	/* For BDA the memory must be allocated with the device_address flag */
-	VkMemoryAllocateFlagsInfo maf = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-		.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
-	};
-	VkMemoryAllocateInfo mai = {
-		.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext           = &maf,
-		.allocationSize  = mr.size,
-		.memoryTypeIndex = find_memory_type(
-				a, mr.memoryTypeBits,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-	};
-	VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, &a->vertex_memory));
-	VK_CHECK(vkBindBufferMemory(a->device, a->vertex_buffer, a->vertex_memory, 0));
-
+static void upload_buffer(t_app *a, VkDeviceMemory memory,
+                          const void *data, VkDeviceSize size)
+{
     void *mapped;
-    VK_CHECK(vkMapMemory(a->device, a->vertex_memory, 0, vert_size, 0, &mapped));
-    memcpy(mapped, m->vertices, vert_size);
-    vkUnmapMemory(a->device, a->vertex_memory);
+    VK_CHECK(vkMapMemory(a->device, memory, 0, size, 0, &mapped));
+    memcpy(mapped, data, size);
+    vkUnmapMemory(a->device, memory);
+}
 
-	/* Get the 64-bit GPU pointer */
-	VkBufferDeviceAddressInfo bdai = {
-		.sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-		.buffer = a->vertex_buffer,
-	};
-	a->vertex_address = vkGetBufferDeviceAddress(a->device, &bdai);
+static void create_scene_buffer(t_app *a)
+{
+    create_buffer(a, sizeof(t_scene_data),
+                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                  true, &a->scene_buffer, &a->scene_memory);
 
-	/* Index buffer */
-	VkDeviceSize idx_size = sizeof(uint32_t) * m->index_count;
+    VkBufferDeviceAddressInfo bdai = {
+        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .buffer = a->scene_buffer,
+    };
+    a->scene_address = vkGetBufferDeviceAddress(a->device, &bdai);
+}
 
-	bi.size  = idx_size;
-    bi.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, &a->index_buffer));
+static void upload_mesh(t_app *a)
+{
+    Mesh *m = &a->mesh;
 
-	vkGetBufferMemoryRequirements(a->device, a->index_buffer, &mr);
-    mai.allocationSize  = mr.size;
-    mai.memoryTypeIndex = find_memory_type(a, mr.memoryTypeBits,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	mai.pNext = NULL;
-    VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, &a->index_memory));
-    VK_CHECK(vkBindBufferMemory(a->device, a->index_buffer, a->index_memory, 0));
+    /* vertex buffer */
+    VkDeviceSize vert_size = sizeof(t_vertex) * m->vertex_count;
+    create_buffer(a, vert_size,
+                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                  true, &a->vertex_buffer, &a->vertex_memory);
+    upload_buffer(a, a->vertex_memory, m->vertices, vert_size);
 
-	VK_CHECK(vkMapMemory(a->device, a->index_memory, 0, idx_size, 0, &mapped));
-    memcpy(mapped, m->indices, idx_size);
-    vkUnmapMemory(a->device, a->index_memory);
+    VkBufferDeviceAddressInfo bdai = {
+        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .buffer = a->vertex_buffer,
+    };
+    a->vertex_address = vkGetBufferDeviceAddress(a->device, &bdai);
+
+    /* index buffer */
+    VkDeviceSize idx_size = sizeof(uint32_t) * m->index_count;
+    create_buffer(a, idx_size,
+                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                  false, &a->index_buffer, &a->index_memory);
+    upload_buffer(a, a->index_memory, m->indices, idx_size);
+
+	t_scene_data scene_data = { a->vertex_address };
+    upload_buffer(a, a->scene_memory, &scene_data, sizeof(t_scene_data));
 }
 
 /* ================================================================== */
@@ -528,11 +547,11 @@ static void upload_mesh(App *a)
  *    layout(set=0, binding=0) uniform sampler2D textures[];
  *    vec4 c = texture(textures[push_const.tex_id], uv);
  * ================================================================== */
-static void create_bindless_descriptors(App *a)
+static void create_bindless_descriptors(t_app *a)
 {
 	/* Layout — variable-count binding with all the UPDATE_AFTER_BIND flags */
 	VkDescriptorBindingFlags binding_flags =
-		VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT    |
+		VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT     |
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT               |
 		VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT             |
 		VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
@@ -603,7 +622,7 @@ static void create_bindless_descriptors(App *a)
 /* ================================================================== */
 /*  Command pool + per-frame sync                                     */
 /* ================================================================== */
-static void create_frame_resources(App *a)
+static void create_frame_resources(t_app *a)
 {
 	VkCommandPoolCreateInfo cp_ci = {
 		.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -643,7 +662,7 @@ static void create_frame_resources(App *a)
  *  dstStageMask, srcAccessMask, dstAccessMask into a single struct.
  *  No more "which stage do I put the wait mask in again?" confusion.
  * ================================================================== */
-static void transition_image(App *a,
+static void transition_image(t_app *a,
 		VkCommandBuffer      cmd,
 		VkImage              image,
 		VkImageLayout        old_layout,
@@ -688,9 +707,9 @@ static void transition_image(App *a,
  *  we describe attachments inline with VkRenderingAttachmentInfo and
  *  call vkCmdBeginRendering / vkCmdEndRendering.
  * ================================================================== */
-static int draw_frame(App *a)
+static int draw_frame(t_app *a)
 {
-	Frame *f = &a->frames[a->frame_index % MAX_FRAMES];
+	t_frame *f = &a->frames[a->frame_index % MAX_FRAMES];
 
 	vkWaitForFences(a->device, 1, &f->in_flight, VK_TRUE, UINT64_MAX);
 
@@ -752,9 +771,31 @@ static int draw_frame(App *a)
 	VkRect2D   scissor  = { {0,0}, a->sc_extent };
 
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline);
+
+	mat4 model, view, proj, mvp;
+
+	glm_mat4_identity(model);
+
+	vec3 eye    = {3.0f, 4.0f, -5.0f};
+	vec3 center = {1.0f, 0.0f,  0.0f};
+	vec3 up     = {0.0f, 1.0f,  0.0f};
+	glm_lookat(eye, center, up, view);
+
+	float aspect = (float)a->sc_extent.width / (float)a->sc_extent.height;
+	glm_perspective(glm_rad(60.0f), aspect, 0.1f, 100.0f, proj);
+	proj[1][1] *= -1;   /* opengl and vulans y's are flipped */
+
+	glm_mat4_mul(proj, view, mvp);
+	glm_mat4_mul(mvp, model, mvp);
+
+	t_push_constants pc = {0};
+	memcpy(pc.mvp, mvp, sizeof(mat4));
+	pc.scene = a->scene_address;
+
 	vkCmdPushConstants(f->cmd, a->pipeline_layout,
-                   VK_SHADER_STAGE_VERTEX_BIT,
-                   0, sizeof(uint64_t), &a->vertex_address);
+					   VK_SHADER_STAGE_VERTEX_BIT,
+					   0, sizeof(t_push_constants), &pc);
+
 	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
 	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
 	vkCmdBindIndexBuffer(f->cmd, a->index_buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -817,9 +858,9 @@ static int draw_frame(App *a)
 	return 1;
 }
 
-static void create_graphics_pipeline(App *a)
+static void create_graphics_pipeline(t_app *a)
 {
-    /* ---- load SPIR-V -------------------------------------------- */
+	/* load spirv */
     size_t   vert_size, frag_size;
     uint32_t *vert_code = load_spirv_file("assets/shaders/triangle.vert.spv", &vert_size);
     uint32_t *frag_code = load_spirv_file("assets/shaders/triangle.frag.spv", &frag_size);
@@ -914,7 +955,7 @@ static void create_graphics_pipeline(App *a)
 	VkPushConstantRange pc_range = {
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
 		.offset     = 0,
-    	.size       = sizeof(uint64_t),
+    	.size       = sizeof(t_push_constants),
 	};
 
     VkPipelineLayoutCreateInfo layout_ci = {
@@ -958,7 +999,7 @@ static void create_graphics_pipeline(App *a)
 /* ================================================================== */
 int main(void)
 {
-	App a = {0};
+	t_app a = {0};
 
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
@@ -982,6 +1023,7 @@ int main(void)
 	pick_physical_device(&a);
 	create_device(&a);
 	create_swapchain(&a);
+	create_scene_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cube.glb");
 	upload_mesh(&a);
 	create_bindless_descriptors(&a);
@@ -1031,6 +1073,8 @@ int main(void)
 	vkDestroyBuffer(a.device, a.index_buffer, NULL);
 	vkFreeMemory  (a.device, a.vertex_memory, NULL);
 	vkDestroyBuffer(a.device, a.vertex_buffer, NULL);
+	vkFreeMemory  (a.device, a.scene_memory, NULL);
+	vkDestroyBuffer(a.device, a.scene_buffer, NULL);
 
 	destroy_swapchain(&a);
 	vkDestroyDevice    (a.device,   NULL);

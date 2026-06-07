@@ -28,7 +28,7 @@ Mesh load_mesh_from_gltf_file(const char *path)
 
     Mesh mesh = {0};
     mesh.vertex_count = (uint32_t)pos_acc->count;
-    mesh.vertices     = malloc(sizeof(Vertex) * mesh.vertex_count);
+    mesh.vertices     = malloc(sizeof(t_vertex) * mesh.vertex_count);
 
     for (uint32_t i = 0; i < mesh.vertex_count; i++) {
         cgltf_accessor_read_float(pos_acc, i, mesh.vertices[i].position, 3);
