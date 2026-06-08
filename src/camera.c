@@ -48,15 +48,17 @@ void camera_move(t_camera *cam, const bool *keyboard_state, float dt)
 		0,
 		cam->direction[2]
 	};
+	glm_vec3_normalize(forward);
 
 	vec3 up = { 0.0f, 1.0f, 0.0f };
 	vec3 right;
 	glm_vec3_cross(forward, up, right);
+	glm_vec3_normalize(right);
 
 	vec3 world_direction = {0};
-	glm_vec3_muladds(forward, input_vector[2], world_direction);
 	glm_vec3_muladds(right, input_vector[0], world_direction);
 	glm_vec3_muladds(up, input_vector[1], world_direction);
+	glm_vec3_muladds(forward, input_vector[2], world_direction);
 
 	cam->position[0] += world_direction[0] * MOVE_SPEED * dt;
 	cam->position[1] += world_direction[1] * MOVE_SPEED * dt;
@@ -80,7 +82,7 @@ void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp)
 	glm_look(cam->position, cam->direction, up, view);
 
 	float aspect = screen_width / screen_height;
-	glm_perspective(glm_rad(60.0f), aspect, 0.1f, 100.0f, proj);
+	glm_perspective(glm_rad(60.0f), aspect, 0.1f, 10000.0f, proj);
 	proj[1][1] *= -1;   /* opengl and vulkans y's are flipped */
 
 	glm_mat4_mul(proj, view, mvp);

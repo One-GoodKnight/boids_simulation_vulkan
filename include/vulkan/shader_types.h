@@ -8,8 +8,14 @@ typedef struct s_vertex {
 	float uv[2];
 } t_vertex;
 
+typedef struct s_boid {
+	float position[3];
+	float velocity[3];
+} t_boid;
+
 typedef struct s_scene_data {
     uint64_t vertex_buffer;
+	uint64_t boid_buffer;
 } t_scene_data;
 
 typedef struct s_push_constants {

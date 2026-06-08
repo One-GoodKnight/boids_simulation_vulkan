@@ -71,10 +71,13 @@ typedef struct s_app {
 	/* Buffer Device Address */
 	VkBuffer          vertex_buffer;
 	VkDeviceMemory    vertex_memory;
-	VkDeviceAddress   vertex_address;
 
 	VkBuffer          index_buffer;
 	VkDeviceMemory    index_memory;
+
+	VkBuffer          boid_buffer;
+	VkDeviceMemory    boid_memory;
+	uint32_t          boid_count;
 
 	VkBuffer          scene_buffer;
 	VkDeviceMemory    scene_memory;
@@ -93,5 +96,18 @@ typedef struct s_app {
 
 	t_camera          camera;
 } t_app;
+
+/* ------------------------------------------------------------------- */
+/*  Error helper                                                       */
+/* ------------------------------------------------------------------- */
+# define VK_CHECK(x)                                                    \
+	do {                                                                \
+		VkResult _r = (x);                                            	\
+		if (_r != VK_SUCCESS) {                                       	\
+			fprintf(stderr, "Vulkan error %d at %s:%d\n",            	\
+					_r, __FILE__, __LINE__);                          	\
+			exit(1);                                                  	\
+		}                                                            	\
+	} while (0)
 
 #endif

@@ -4,6 +4,8 @@ BUILD_DIR		:= .build
 
 SRC_DIR			:= src
 SRCS			:= 								\
+	vulkan/BDA/create_buffer.c					\
+	vulkan/BDA/upload.c							\
 	main.c										\
 	camera.c									\
 	load_files/load_gltf_file.c					\

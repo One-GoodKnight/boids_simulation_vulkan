@@ -3,8 +3,14 @@ struct vertex {
     float2 uv;
 };
 
+struct boid {
+	float3 position;
+	float3 velocity;
+};
+
 struct scene_data {
     uint64_t vertex_buffer;
+	uint64_t boid_buffer;
 };
 
 struct push_constants {
@@ -20,14 +26,22 @@ struct vertex_stage_output {
 };
 
 [shader("vertex")]
-vertex_stage_output vertex_main(uint vertex_id : SV_VertexID)
-{
+vertex_stage_output vertex_main(
+	uint vertex_id : SV_VertexID,
+	uint instance_id : SV_InstanceID
+) {
 	scene_data *scene = (scene_data *)pc.scene;
+
     vertex *vertices = (vertex *)scene->vertex_buffer;
     vertex v = vertices[vertex_id];
 
+	boid   *boids = (boid *)scene->boid_buffer;
+	boid   b = boids[instance_id];
+
+	float3 world_pos = v.position + b.position;
+
     vertex_stage_output output;
-    output.position = mul(pc.mvp, float4(v.position, 1.0f));
+    output.position = mul(pc.mvp, float4(world_pos, 1.0f));
     output.uv       = v.uv;
     return output;
 }

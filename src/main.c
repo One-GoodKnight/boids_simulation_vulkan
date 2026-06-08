@@ -4,23 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "vulkan/BDA.h"
+#include "vulkan/shader_types.h"
 #include "app.h"
 #include "camera.h"
 #include "load_files.h"
-#include "shader_types.h"
-
-/* ------------------------------------------------------------------- */
-/*  Error helper                                                       */
-/* ------------------------------------------------------------------- */
-#define VK_CHECK(x)                                                     \
-	do {                                                                \
-		VkResult _r = (x);                                            	\
-		if (_r != VK_SUCCESS) {                                       	\
-			fprintf(stderr, "Vulkan error %d at %s:%d\n",            	\
-					_r, __FILE__, __LINE__);                          	\
-			exit(1);                                                  	\
-		}                                                            	\
-	} while (0)
 
 /* ================================================================== */
 /*  Instance  (Vulkan 1.3 requested)                                  */
@@ -210,7 +198,7 @@ static void create_device(t_app *a)
 }
 
 /* ================================================================== */
-/*  Swapchain (no render pass / framebuffers needed with dynrender)    */
+/*  Swapchain (no render pass / framebuffers needed with dynrender)   */
 /* ================================================================== */
 static VkSurfaceFormatKHR choose_format(t_app *a)
 {
@@ -350,109 +338,6 @@ static void destroy_swapchain(t_app *a)
 	free(a->sc_views);
 	free(a->sc_layouts);
 	vkDestroySwapchainKHR(a->device, a->swapchain, NULL);
-}
-
-/* ================================================================== */
-/*  Buffer Device Address — small scene-data buffer
- *
- *  We allocate a tiny buffer with SHADER_DEVICE_ADDRESS usage so the
- *  GPU can access it via a raw 64-bit pointer.  The address is
- *  retrieved with vkGetBufferDeviceAddress and would be pushed to a
- *  shader via a push constant.
- * ================================================================== */
-static uint32_t find_memory_type(t_app *a, uint32_t filter,
-		VkMemoryPropertyFlags flags)
-{
-	VkPhysicalDeviceMemoryProperties mp;
-	vkGetPhysicalDeviceMemoryProperties(a->physical, &mp);
-	for (uint32_t i = 0; i < mp.memoryTypeCount; i++)
-		if ((filter & (1u << i)) &&
-				(mp.memoryTypes[i].propertyFlags & flags) == flags)
-			return i;
-	fputs("No suitable memory type\n", stderr);
-	exit(1);
-}
-
-static void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
-                          bool device_address, VkBuffer *buffer, VkDeviceMemory *memory)
-{
-    VkBufferCreateInfo bi = {
-        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size        = size,
-        .usage       = usage,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
-    VK_CHECK(vkCreateBuffer(a->device, &bi, NULL, buffer));
-
-    VkMemoryRequirements mr;
-    vkGetBufferMemoryRequirements(a->device, *buffer, &mr);
-
-    VkMemoryAllocateFlagsInfo maf = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
-    };
-    VkMemoryAllocateInfo mai = {
-        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext           = device_address ? &maf : NULL,
-        .allocationSize  = mr.size,
-        .memoryTypeIndex = find_memory_type(a, mr.memoryTypeBits,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-    };
-    VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, memory));
-    VK_CHECK(vkBindBufferMemory(a->device, *buffer, *memory, 0));
-}
-
-static void upload_buffer(t_app *a, VkDeviceMemory memory,
-                          const void *data, VkDeviceSize size)
-{
-    void *mapped;
-    VK_CHECK(vkMapMemory(a->device, memory, 0, size, 0, &mapped));
-    memcpy(mapped, data, size);
-    vkUnmapMemory(a->device, memory);
-}
-
-static void create_scene_buffer(t_app *a)
-{
-    create_buffer(a, sizeof(t_scene_data),
-                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                  true, &a->scene_buffer, &a->scene_memory);
-
-    VkBufferDeviceAddressInfo bdai = {
-        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-        .buffer = a->scene_buffer,
-    };
-    a->scene_address = vkGetBufferDeviceAddress(a->device, &bdai);
-}
-
-static void upload_mesh(t_app *a)
-{
-    Mesh *m = &a->mesh;
-
-    /* vertex buffer */
-    VkDeviceSize vert_size = sizeof(t_vertex) * m->vertex_count;
-    create_buffer(a, vert_size,
-                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                  true, &a->vertex_buffer, &a->vertex_memory);
-    upload_buffer(a, a->vertex_memory, m->vertices, vert_size);
-
-    VkBufferDeviceAddressInfo bdai = {
-        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-        .buffer = a->vertex_buffer,
-    };
-    a->vertex_address = vkGetBufferDeviceAddress(a->device, &bdai);
-
-    /* index buffer */
-    VkDeviceSize idx_size = sizeof(uint32_t) * m->index_count;
-    create_buffer(a, idx_size,
-                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                  false, &a->index_buffer, &a->index_memory);
-    upload_buffer(a, a->index_memory, m->indices, idx_size);
-
-	t_scene_data scene_data = { a->vertex_address };
-    upload_buffer(a, a->scene_memory, &scene_data, sizeof(t_scene_data));
 }
 
 /* ================================================================== */
@@ -702,7 +587,7 @@ static int draw_frame(t_app *a)
 	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
 	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
 	vkCmdBindIndexBuffer(f->cmd, a->index_buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(f->cmd, a->mesh.index_count, 1, 0, 0, 0);
+	vkCmdDrawIndexed(f->cmd, a->mesh.index_count, a->boid_count, 0, 0, 0);
 
 	a->fn_CmdEndRendering(f->cmd);
 
@@ -934,6 +819,8 @@ int main(void)
 	create_scene_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cube.glb");
 	upload_mesh(&a);
+	upload_boids(&a, 1000);
+	upload_scene(&a);
 	create_bindless_descriptors(&a);
 	create_graphics_pipeline(&a);
 	create_frame_resources(&a);
@@ -948,7 +835,7 @@ int main(void)
 		uint64_t cur_time = SDL_GetTicksNS();
 		dt = (float)(cur_time - last_time) / 1000000000.0f;
 		last_time = cur_time;
-		//printf("FPS: %d\n", (int)(1.0f / delta_time));
+		// printf("FPS: %d\n", (int)(1.0f / dt));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
@@ -994,6 +881,8 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
+	vkFreeMemory   (a.device, a.boid_memory, NULL);
+	vkDestroyBuffer(a.device, a.boid_buffer, NULL);
 	vkFreeMemory   (a.device, a.index_memory, NULL);
 	vkDestroyBuffer(a.device, a.index_buffer, NULL);
 	vkFreeMemory  (a.device, a.vertex_memory, NULL);
