@@ -619,9 +619,12 @@ static int draw_frame(t_app *a, float dt)
 	mat4 mvp;
 	get_mvp(&a->camera, (float)a->sc_extent.width, (float)a->sc_extent.height, mvp);
 
-	t_push_constants_graphics gpc = {0};
+	t_push_constants_graphics gpc = {
+		.scene = a->scene_address,
+		.min_vel = BOID_MIN_VEL,
+		.max_vel = BOID_MAX_VEL,
+	};
 	memcpy(gpc.mvp, mvp, sizeof(mat4));
-	gpc.scene = a->scene_address;
 
 	vkCmdPushConstants(f->cmd, a->pipeline_graphics_layout,
 					   VK_SHADER_STAGE_VERTEX_BIT,
@@ -722,7 +725,7 @@ int main(void)
 	create_scene_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cone.glb");
 	upload_mesh(&a);
-	upload_boids(&a, 10000);
+	upload_boids(&a, 30000);
 	upload_scene(&a);
 	create_bindless_descriptors(&a);
 	create_graphics_pipeline(&a);

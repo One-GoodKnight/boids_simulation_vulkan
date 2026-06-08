@@ -110,8 +110,7 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 	{
 		float3 center_group = cohesion / cohesion_count;
 		float3 diff = center_group - b.position;
-		float dist = length(diff);
-		b.velocity += normalize(diff) * cohesion_force * dist * dt;
+		b.velocity += normalize(diff) * cohesion_force * dt;
 	}
 
 	// avoid border
@@ -122,8 +121,6 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 	if (dist_passed_border > 0)
 		b.velocity += normalize(diff) * avoid_border_force * dist_passed_border * dt;
 	
-	if (b.velocity.y < 0)
-		b.velocity *= exp(0.25f * dt);
 
 	float speed = length(b.velocity);
 	if (speed < 0.00001f)

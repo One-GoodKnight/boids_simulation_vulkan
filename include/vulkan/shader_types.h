@@ -50,6 +50,9 @@ typedef struct s_vertex {
 typedef struct s_push_constants_graphics {
     float    mvp[16];
     uint64_t scene;
+
+	float    min_vel;
+	float    max_vel;
 } t_push_constants_graphics;
 
 #endif

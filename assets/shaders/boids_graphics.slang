@@ -15,14 +15,18 @@ struct scene_data {
 
 struct push_constants {
     float4x4 mvp;
-    uint64_t scene;   /* address of scene_data */
+    uint64_t scene;
+
+	float min_vel;
+	float max_vel;
 };
 
 [[vk::push_constant]] push_constants pc;
 
 struct vertex_stage_output {
     float4 position : SV_Position;
-    float2 uv       : TEXCOORD0;
+
+	nointerpolation float3 velocity : TEXCOORD0;
 };
 
 [shader("vertex")]
@@ -52,11 +56,19 @@ vertex_stage_output vertex_main(
 
     vertex_stage_output output;
     output.position = mul(pc.mvp, float4(world_pos, 1.0f));
-    output.uv       = v.uv;
+    output.velocity = b.velocity;
     return output;
 }
 
 [shader("fragment")]
-float4 fragment_main(vertex_stage_output input) : SV_Target {
-    return float4(1.0f, 0.0f, 0.0f, 1.0f);
+float4 fragment_main(
+	vertex_stage_output input
+) : SV_Target {
+	float3 dir = normalize(input.velocity);
+
+	float3 color = (dir + float3(1.0f, 1.0f, 1.0f)) / 2;
+
+	float3 dark_color = color * 0.65f;
+
+    return float4(dark_color, 1.0f);
 }
