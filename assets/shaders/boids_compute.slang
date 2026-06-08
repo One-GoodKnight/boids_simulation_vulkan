@@ -32,7 +32,7 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
     boid b = boids[tid.x];
 	float speed = (float)pc.speed;
 
-    b.position += b.velocity * speed * dt;
+    b.position += 0;// b.velocity * speed * dt;
 
     boids[tid.x] = b;
 }

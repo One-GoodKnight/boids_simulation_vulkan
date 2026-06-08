@@ -711,9 +711,9 @@ int main(void)
 	create_device(&a);
 	create_swapchain(&a);
 	create_scene_buffer(&a);
-	a.mesh = load_mesh_from_gltf_file("assets/models/cube.glb");
+	a.mesh = load_mesh_from_gltf_file("assets/models/cone.glb");
 	upload_mesh(&a);
-	upload_boids(&a, 1000);
+	upload_boids(&a, 10000);
 	upload_scene(&a);
 	create_bindless_descriptors(&a);
 	create_graphics_pipeline(&a);
