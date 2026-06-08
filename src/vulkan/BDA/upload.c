@@ -43,9 +43,9 @@ void upload_boids(t_app *a, uint32_t count)
 		boids[i].position[0] = ((float)rand() / RAND_MAX) * MAX_SPAWN_DISTANCE - MAX_SPAWN_DISTANCE / 2;
 		boids[i].position[1] = ((float)rand() / RAND_MAX) * MAX_SPAWN_DISTANCE - MAX_SPAWN_DISTANCE / 2;
 		boids[i].position[2] = ((float)rand() / RAND_MAX) * MAX_SPAWN_DISTANCE - MAX_SPAWN_DISTANCE / 2;
-		boids[i].velocity[0] = ((float)rand() / RAND_MAX) * MAX_DEFAULT_VEL - MAX_DEFAULT_VEL / 2;
-		boids[i].velocity[1] = ((float)rand() / RAND_MAX) * MAX_DEFAULT_VEL - MAX_DEFAULT_VEL / 2;
-		boids[i].velocity[2] = ((float)rand() / RAND_MAX) * MAX_DEFAULT_VEL - MAX_DEFAULT_VEL / 2;
+		boids[i].velocity[0] = ((float)rand() / RAND_MAX) * 2 - 1;
+		boids[i].velocity[1] = ((float)rand() / RAND_MAX) * 2 - 1;
+		boids[i].velocity[2] = ((float)rand() / RAND_MAX) * 2 - 1;
 	}
 
 	/* boids buffer */

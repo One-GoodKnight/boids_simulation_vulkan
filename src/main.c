@@ -4,7 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "boids.h"
 #include "vulkan/BDA.h"
+#include "vulkan/create_pipeline.h"
 #include "vulkan/shader_types.h"
 #include "app.h"
 #include "camera.h"
@@ -508,7 +510,7 @@ static void transition_image(t_app *a,
  *  we describe attachments inline with VkRenderingAttachmentInfo and
  *  call vkCmdBeginRendering / vkCmdEndRendering.
  * ================================================================== */
-static int draw_frame(t_app *a)
+static int draw_frame(t_app *a, float dt)
 {
 	t_frame *f = &a->frames[a->frame_index % MAX_FRAMES];
 
@@ -529,15 +531,47 @@ static int draw_frame(t_app *a)
 	vkResetFences(a->device, 1, &f->in_flight);
 	vkResetCommandBuffer(f->cmd, 0);
 
-	/* ---- record --------------------------------------------------- */
+	/* Record command buffer */
 	VkCommandBufferBeginInfo bi = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	VK_CHECK(vkBeginCommandBuffer(f->cmd, &bi));
 
 	VkImage sc_img = a->sc_images[img_index];
 
-	/* 1. Transition: UNDEFINED/PRESENT → COLOR_ATTACHMENT_OPTIMAL
-	   (Synchronization2 barrier — cleaner than the old API)        */
+	/* Compute - update boids */
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute);
+
+	t_push_constants_compute cpc = {
+		.scene = a->scene_address,
+		.dt = dt,
+		.boid_count = a->boid_count,
+		.speed = BOID_SPEED
+	};
+	vkCmdPushConstants(f->cmd, a->pipeline_compute_layout,
+					   VK_SHADER_STAGE_COMPUTE_BIT,
+					   0, sizeof(t_push_constants_compute), &cpc);
+	vkCmdDispatch(f->cmd, (a->boid_count + 63) / 64, 1, 1);
+
+	/* Barrier — compute write must finish before vertex shader reads */
+	VkBufferMemoryBarrier2 boid_barrier = {
+		.sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+		.srcStageMask        = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+		.srcAccessMask       = VK_ACCESS_2_SHADER_WRITE_BIT,
+		.dstStageMask        = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,
+		.dstAccessMask       = VK_ACCESS_2_SHADER_READ_BIT,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.buffer              = a->boid_buffer,
+		.size                = VK_WHOLE_SIZE,
+	};
+	VkDependencyInfo dep = {
+		.sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		.bufferMemoryBarrierCount = 1,
+		.pBufferMemoryBarriers    = &boid_barrier,
+	};
+	a->fn_CmdPipelineBarrier2(f->cmd, &dep);
+
+	/* Transition: UNDEFINED/PRESENT → COLOR_ATTACHMENT_OPTIMAL */
 	transition_image(a, f->cmd, sc_img,
 			a->sc_layouts[img_index],
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -545,7 +579,7 @@ static int draw_frame(t_app *a)
 			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
 
-	/* 2. Dynamic Rendering — describe the color attachment inline */
+	/* Clear color */
 	VkClearValue clear = { .color = {{ 1.0f, 0.95f, 0.25f, 1.0f }} };
 
 	VkRenderingAttachmentInfo color_att = {
@@ -571,18 +605,18 @@ static int draw_frame(t_app *a)
 	VkViewport viewport = { 0, 0, (float)a->sc_extent.width, (float)a->sc_extent.height, 0, 1 };
 	VkRect2D   scissor  = { {0,0}, a->sc_extent };
 
-	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline);
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline_graphics);
 
 	mat4 mvp;
 	get_mvp(&a->camera, (float)a->sc_extent.width, (float)a->sc_extent.height, mvp);
 
-	t_push_constants pc = {0};
-	memcpy(pc.mvp, mvp, sizeof(mat4));
-	pc.scene = a->scene_address;
+	t_push_constants_graphics gpc = {0};
+	memcpy(gpc.mvp, mvp, sizeof(mat4));
+	gpc.scene = a->scene_address;
 
-	vkCmdPushConstants(f->cmd, a->pipeline_layout,
+	vkCmdPushConstants(f->cmd, a->pipeline_graphics_layout,
 					   VK_SHADER_STAGE_VERTEX_BIT,
-					   0, sizeof(t_push_constants), &pc);
+					   0, sizeof(t_push_constants_graphics), &gpc);
 
 	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
 	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
@@ -591,7 +625,7 @@ static int draw_frame(t_app *a)
 
 	a->fn_CmdEndRendering(f->cmd);
 
-	/* 3. Transition: COLOR_ATTACHMENT_OPTIMAL → PRESENT_SRC */
+	/* Transition: COLOR_ATTACHMENT_OPTIMAL → PRESENT_SRC */
 	transition_image(a, f->cmd, sc_img,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
@@ -603,7 +637,7 @@ static int draw_frame(t_app *a)
 
 	VK_CHECK(vkEndCommandBuffer(f->cmd));
 
-	/* ---- submit (Synchronization2: vkQueueSubmit2) ---------------- */
+	/* Submit command buffer */
 	VkSemaphoreSubmitInfo wait_si = {
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
 		.semaphore = a->image_available[img_index],
@@ -646,146 +680,6 @@ static int draw_frame(t_app *a)
 	return 1;
 }
 
-static void create_graphics_pipeline(t_app *a)
-{
-	/* load spirv */
-    size_t   vert_size, frag_size;
-    uint32_t *vert_code = load_spirv_file("assets/shaders/triangle.vert.spv", &vert_size);
-    uint32_t *frag_code = load_spirv_file("assets/shaders/triangle.frag.spv", &frag_size);
-
-    VkShaderModule vert_module, frag_module;
-
-    VkShaderModuleCreateInfo vert_info = {
-        .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = vert_size,
-        .pCode    = vert_code,
-    };
-    VkShaderModuleCreateInfo frag_info = {
-        .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = frag_size,
-        .pCode    = frag_code,
-    };
-    VK_CHECK(vkCreateShaderModule(a->device, &vert_info, NULL, &vert_module));
-    VK_CHECK(vkCreateShaderModule(a->device, &frag_info, NULL, &frag_module));
-    free(vert_code);
-    free(frag_code);
-
-	VkPipelineShaderStageCreateInfo stages[2] = {
-        {
-            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage  = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = vert_module,
-            .pName  = "main",
-        },
-        {
-            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = frag_module,
-            .pName  = "main",
-        },
-    };
-
-	// vertex input
-	VkPipelineVertexInputStateCreateInfo vertex_input = {
-        .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount   = 0,
-        .vertexAttributeDescriptionCount = 0,
-    };
-
-	// shape (triangle)
-	VkPipelineInputAssemblyStateCreateInfo input_assembly = {
-        .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-    };
-
-	VkPipelineViewportStateCreateInfo viewport_state = {
-        .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .viewportCount = 1,
-        .scissorCount  = 1,
-    };
-
-	// rasterizer
-	VkPipelineRasterizationStateCreateInfo rasterizer = {
-        .sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-#ifndef WIREFRAME
-        .polygonMode = VK_POLYGON_MODE_FILL,
-# else
-        .polygonMode = VK_POLYGON_MODE_LINE,
-#endif
-        .cullMode    = VK_CULL_MODE_NONE,   /* no backface culling for now */
-        .frontFace   = VK_FRONT_FACE_CLOCKWISE,
-        .lineWidth   = 1.0f,
-    };
-
-	VkPipelineMultisampleStateCreateInfo multisampling = {
-        .sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,	/* no multi sampling */
-    };
-
-    VkPipelineColorBlendAttachmentState blend_attachment = {
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-        .blendEnable    = VK_FALSE,
-    };
-    VkPipelineColorBlendStateCreateInfo color_blending = {
-        .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .attachmentCount = 1,
-        .pAttachments    = &blend_attachment,
-    };
-
-	VkDynamicState dynamic_states[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR,
-    };
-    VkPipelineDynamicStateCreateInfo dynamic_state = {
-        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .dynamicStateCount = 2,
-        .pDynamicStates    = dynamic_states,
-    };
-
-	// pipeline layout
-	VkPushConstantRange pc_range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		.offset     = 0,
-    	.size       = sizeof(t_push_constants),
-	};
-
-    VkPipelineLayoutCreateInfo layout_ci = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.pushConstantRangeCount = 1,
-    	.pPushConstantRanges    = &pc_range,
-    };
-    VK_CHECK(vkCreatePipelineLayout(a->device, &layout_ci, NULL, &a->pipeline_layout));
-
-	VkPipelineRenderingCreateInfo rendering_ci = {
-        .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-        .colorAttachmentCount    = 1,
-        .pColorAttachmentFormats = &a->sc_format,
-    };
-
-	// assemble the pipeline
-	VkGraphicsPipelineCreateInfo pipeline_ci = {
-        .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext               = &rendering_ci,   /* dynamic rendering hook */
-        .stageCount          = 2,
-        .pStages             = stages,
-        .pVertexInputState   = &vertex_input,
-        .pInputAssemblyState = &input_assembly,
-        .pViewportState      = &viewport_state,
-        .pRasterizationState = &rasterizer,
-        .pMultisampleState   = &multisampling,
-        .pColorBlendState    = &color_blending,
-        .pDynamicState       = &dynamic_state,
-        .layout              = a->pipeline_layout,
-        .renderPass          = VK_NULL_HANDLE,  /* not needed with dynamic rendering */
-    };
-
-	VK_CHECK(vkCreateGraphicsPipelines(a->device, VK_NULL_HANDLE, 1, &pipeline_ci, NULL, &a->pipeline));
-
-	vkDestroyShaderModule(a->device, vert_module, NULL);
-    vkDestroyShaderModule(a->device, frag_module, NULL);
-}
-
 /* ================================================================== */
 /*  Main                                                              */
 /* ================================================================== */
@@ -823,6 +717,7 @@ int main(void)
 	upload_scene(&a);
 	create_bindless_descriptors(&a);
 	create_graphics_pipeline(&a);
+	create_compute_pipeline(&a);
 	create_frame_resources(&a);
 
 	init_camera(&a.camera);
@@ -857,7 +752,7 @@ int main(void)
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);
 		if (wf & SDL_WINDOW_MINIMIZED) { SDL_Delay(16); continue; }
 
-		if (!draw_frame(&a)) {
+		if (!draw_frame(&a, dt)) {
 			vkDeviceWaitIdle(a.device);
 			destroy_swapchain(&a);
 			create_swapchain(&a);
@@ -867,8 +762,10 @@ int main(void)
 	/* cleanup */
 	vkDeviceWaitIdle(a.device);
 
-	vkDestroyPipeline      (a.device, a.pipeline,        NULL);
-	vkDestroyPipelineLayout(a.device, a.pipeline_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
+	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_graphics,        NULL);
+	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
 
 	for (int i = 0; i < MAX_FRAMES; i++)
 	{

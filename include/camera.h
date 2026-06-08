@@ -5,7 +5,7 @@
 # include "cglm/cglm.h"
 
 # define SENSITIVITY 40
-# define MOVE_SPEED 10
+# define CAMERA_SPEED 10
 
 typedef struct s_camera {
 	vec3              position;

@@ -6,6 +6,7 @@ SRC_DIR			:= src
 SRCS			:= 								\
 	vulkan/BDA/create_buffer.c					\
 	vulkan/BDA/upload.c							\
+	vulkan/create_pipeline.c					\
 	main.c										\
 	camera.c									\
 	load_files/load_gltf_file.c					\
@@ -23,15 +24,19 @@ CPPFLAGS		:= -I$(INCLUDES) -MMD -MP
 LDFLAGS 		:= -lSDL3 -lvulkan -lcglm -lm
 
 SHADER_DIR		:= assets/shaders
-SHADERS_FRAG	:=								\
-	triangle									\
-
 SHADERS_VERT	:=								\
-	triangle									\
+	boids_graphics								\
 
-SPVS_FRAG		:= $(SHADERS_FRAG:%=$(SHADER_DIR)/%.frag.spv)
+SHADERS_FRAG	:=								\
+	boids_graphics								\
+
+SHADERS_COMP	:=								\
+	boids_compute								\
+
 SPVS_VERT		:= $(SHADERS_VERT:%=$(SHADER_DIR)/%.vert.spv)
-SPVS			:= $(SPVS_FRAG) $(SPVS_VERT)
+SPVS_FRAG		:= $(SHADERS_FRAG:%=$(SHADER_DIR)/%.frag.spv)
+SPVS_COMP		:= $(SHADERS_COMP:%=$(SHADER_DIR)/%.comp.spv)
+SPVS			:= $(SPVS_FRAG) $(SPVS_VERT) $(SPVS_COMP)
 
 SLANGC      	:= slangc
 
@@ -51,6 +56,9 @@ $(SHADER_DIR)/%.vert.spv: $(SHADER_DIR)/%.slang
 
 $(SHADER_DIR)/%.frag.spv: $(SHADER_DIR)/%.slang
 	$(SLANGC) $< -target spirv -entry fragment_main -o $@
+
+$(SHADER_DIR)/%.comp.spv: $(SHADER_DIR)/%.slang
+	$(SLANGC) $< -target spirv -entry compute_main -o $@
 
 clean:
 	rm -rf $(OBJS) $(DEPS)

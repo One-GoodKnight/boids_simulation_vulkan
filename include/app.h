@@ -90,9 +90,11 @@ typedef struct s_app {
 	VkDescriptorPool      bindless_pool;
 	VkDescriptorSet       bindless_set;
 
-	/* Pipeline */
-	VkPipelineLayout  pipeline_layout;
-	VkPipeline        pipeline;
+	/* Pipelines */
+	VkPipelineLayout  pipeline_graphics_layout;
+	VkPipeline        pipeline_graphics;
+	VkPipelineLayout  pipeline_compute_layout;
+	VkPipeline        pipeline_compute;
 
 	t_camera          camera;
 } t_app;
