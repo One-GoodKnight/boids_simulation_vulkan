@@ -745,6 +745,13 @@ int main(void)
 		while (SDL_PollEvent(&e)) {
 			if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE))
 				running = false;
+			if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_LALT)
+			{
+				SDL_WarpMouseInWindow(a.window, (float)a.sc_extent.width / 2, (float)a.sc_extent.height / 2);
+				SDL_SetWindowRelativeMouseMode(a.window, false);
+			}
+			if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT)
+				SDL_SetWindowRelativeMouseMode(a.window, true);
 			if (e.type == SDL_EVENT_WINDOW_RESIZED ||
 					e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
 				vkDeviceWaitIdle(a.device);
