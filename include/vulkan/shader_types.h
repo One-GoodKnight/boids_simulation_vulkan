@@ -10,12 +10,34 @@ typedef struct s_scene_data {
 	uint64_t boid_buffer;
 } t_scene_data;
 
+typedef struct s_boid {
+	float position[3];
+	float velocity[3];
+} t_boid;
+
 /* COMPUTE */
 typedef struct s_push_constants_compute {
     uint64_t scene;
+
 	float    dt;
+
 	uint32_t boid_count;
-	float    speed;
+
+	int      max_dist;
+
+	float    min_vel;
+	float    max_vel;
+
+	float    separation_radius;
+	float    separation_force;
+
+	float    alignment_radius;
+	float    alignment_force;
+
+	float    cohesion_radius;
+	float    cohesion_force;
+
+	float    avoid_border_force;
 } t_push_constants_compute;
 
 /* GRAPHICS */
@@ -24,11 +46,6 @@ typedef struct s_vertex {
 	float position[3];
 	float uv[2];
 } t_vertex;
-
-typedef struct s_boid {
-	float position[3];
-	float velocity[3];
-} t_boid;
 
 typedef struct s_push_constants_graphics {
     float    mvp[16];

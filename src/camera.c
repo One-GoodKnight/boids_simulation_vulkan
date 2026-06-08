@@ -82,7 +82,7 @@ void get_mvp(t_camera *cam, float screen_width, float screen_height, mat4 mvp)
 	glm_look(cam->position, cam->direction, up, view);
 
 	float aspect = screen_width / screen_height;
-	glm_perspective(glm_rad(60.0f), aspect, 0.1f, 1000000.0f, proj);
+	glm_perspective(glm_rad(FOV), aspect, 0.1f, 1000000.0f, proj);
 	proj[1][1] *= -1;   /* opengl and vulkans y's are flipped */
 
 	glm_mat4_mul(proj, view, mvp);

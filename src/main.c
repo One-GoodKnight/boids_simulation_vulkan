@@ -545,7 +545,16 @@ static int draw_frame(t_app *a, float dt)
 		.scene = a->scene_address,
 		.dt = dt,
 		.boid_count = a->boid_count,
-		.speed = BOID_SPEED
+		.max_dist = MAX_DISTANCE,
+		.min_vel = BOID_MIN_VEL,
+		.max_vel = BOID_MAX_VEL,
+		.separation_radius = BOID_SEPARATION_RADIUS,
+		.separation_force = BOID_SEPARATION_FORCE,
+		.alignment_radius = BOID_ALIGNMENT_RADIUS,
+		.alignment_force = BOID_ALIGNMENT_FORCE,
+		.cohesion_radius = BOID_COHESION_RADIUS,
+		.cohesion_force = BOID_COHESION_FORCE,
+		.avoid_border_force = BOID_AVOID_BORDER_FORCE,
 	};
 	vkCmdPushConstants(f->cmd, a->pipeline_compute_layout,
 					   VK_SHADER_STAGE_COMPUTE_BIT,
@@ -743,7 +752,7 @@ int main(void)
 				create_swapchain(&a);
 			}
 			if (e.type == SDL_EVENT_MOUSE_MOTION)
-				camera_rotate(&a.camera, e.motion.xrel * dt, e.motion.yrel * dt);
+				camera_rotate(&a.camera, e.motion.xrel, e.motion.yrel);
 		}
 
 		const bool *keyboard_state = SDL_GetKeyboardState(NULL);

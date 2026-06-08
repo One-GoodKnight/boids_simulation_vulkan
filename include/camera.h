@@ -4,8 +4,9 @@
 # include <SDL3/SDL_keycode.h>
 # include "cglm/cglm.h"
 
-# define SENSITIVITY 40
-# define CAMERA_SPEED 10
+# define SENSITIVITY 0.01f
+# define CAMERA_SPEED 50
+# define FOV 70.0f
 
 typedef struct s_camera {
 	vec3              position;
