@@ -45,7 +45,7 @@ void camera_move(t_camera *cam, const bool *keyboard_state, float dt)
 
 	vec3 forward = {
 		cam->direction[0],
-		cam->direction[1],
+		0,
 		cam->direction[2]
 	};
 
