@@ -38,7 +38,17 @@ vertex_stage_output vertex_main(
 	boid   *boids = (boid *)scene->boid_buffer;
 	boid   b = boids[instance_id];
 
-	float3 world_pos = v.position + b.position;
+	float3 forward = normalize(b.velocity);
+	float3 up = float3(0, 1, 0);
+	float3 right = normalize(cross(up, forward));
+	up = cross(forward, right); // local up
+
+	float3x3 rot = float3x3(
+		right.x,   up.x,   forward.x,
+		right.y,   up.y,   forward.y,
+		right.z,   up.z,   forward.z
+	);
+	float3 world_pos = mul(rot, v.position) + b.position;
 
     vertex_stage_output output;
     output.position = mul(pc.mvp, float4(world_pos, 1.0f));
