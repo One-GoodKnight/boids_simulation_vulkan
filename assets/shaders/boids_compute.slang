@@ -121,6 +121,8 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 	if (dist_passed_border > 0)
 		b.velocity += normalize(diff) * avoid_border_force * dist_passed_border * dt;
 	
+	if (b.velocity.y < 0)
+		b.velocity *= exp(0.25f * dt);
 
 	float speed = length(b.velocity);
 	if (speed < 0.00001f)

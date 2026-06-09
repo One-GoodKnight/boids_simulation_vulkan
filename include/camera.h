@@ -5,7 +5,7 @@
 # include "cglm/cglm.h"
 
 # define SENSITIVITY 0.01f
-# define CAMERA_SPEED 50
+# define CAMERA_SPEED 70
 # define FOV 70.0f
 
 typedef struct s_camera {

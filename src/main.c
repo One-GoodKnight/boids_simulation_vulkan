@@ -651,6 +651,9 @@ int main(void)
 		const bool *keyboard_state = SDL_GetKeyboardState(NULL);
 		camera_move(&a.camera, keyboard_state, dt);
 
+		if (keyboard_state[SDL_SCANCODE_F])
+			dt *= 5;
+
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);
 		if (wf & SDL_WINDOW_MINIMIZED) { SDL_Delay(16); continue; }
 
