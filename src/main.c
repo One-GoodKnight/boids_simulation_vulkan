@@ -154,7 +154,7 @@ static int draw_frame(t_app *a, float dt)
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, 0,
-			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+			VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
 			VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 			VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -193,25 +193,34 @@ static int draw_frame(t_app *a, float dt)
 	VkViewport viewport = { 0, 0, (float)a->sc_extent.width, (float)a->sc_extent.height, 0, 1 };
 	VkRect2D   scissor  = { {0,0}, a->sc_extent };
 
-	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline_graphics);
+	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
+	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
+	vkCmdBindIndexBuffer(f->cmd, a->index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	mat4 mvp;
 	get_mvp(&a->camera, (float)a->sc_extent.width, (float)a->sc_extent.height, mvp);
 
 	t_push_constants_graphics gpc = {
 		.scene = a->scene_address,
-		.min_vel = BOID_MIN_VEL,
-		.max_vel = BOID_MAX_VEL,
 	};
 	memcpy(gpc.mvp, mvp, sizeof(mat4));
 
-	vkCmdPushConstants(f->cmd, a->pipeline_graphics_layout,
-					   VK_SHADER_STAGE_VERTEX_BIT,
-					   0, sizeof(t_push_constants_graphics), &gpc);
+	/* main graphics */
 
-	vkCmdSetViewport(f->cmd, 0, 1, &viewport);
-	vkCmdSetScissor (f->cmd, 0, 1, &scissor);
-	vkCmdBindIndexBuffer(f->cmd, a->index_buffer, 0, VK_INDEX_TYPE_UINT32);
+	gpc.outline_thickness = 0.0f;
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline_graphics);
+	vkCmdPushConstants(f->cmd, a->pipeline_graphics_layout,
+					   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+					   0, sizeof(t_push_constants_graphics), &gpc);
+	vkCmdDrawIndexed(f->cmd, a->mesh.index_count, a->boid_count, 0, 0, 0);
+
+	/* Outline graphics */
+
+	gpc.outline_thickness = OUTLINE;
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, a->pipeline_outline);
+	vkCmdPushConstants(f->cmd, a->pipeline_outline_layout,
+					   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+					   0, sizeof(t_push_constants_graphics), &gpc);
 	vkCmdDrawIndexed(f->cmd, a->mesh.index_count, a->boid_count, 0, 0, 0);
 
 	a->fn_CmdEndRendering(f->cmd);
@@ -306,11 +315,12 @@ int main(void)
 	create_scene_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cone.glb");
 	upload_mesh(&a);
-	upload_boids(&a, 30000);
+	upload_boids(&a, 10000);
 	upload_scene(&a);
 	create_bindless_descriptors(&a);
-	create_graphics_pipeline(&a);
 	create_compute_pipeline(&a);
+	create_graphics_pipeline(&a);
+	create_outline_pipeline(&a);
 	create_frame_resources(&a);
 
 	init_camera(&a.camera);
@@ -371,10 +381,12 @@ int main(void)
 	/* cleanup */
 	vkDeviceWaitIdle(a.device);
 
-	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
-	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_outline,        NULL);
+	vkDestroyPipelineLayout(a.device, a.pipeline_outline_layout, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_graphics,        NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
+	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
 
 	for (int i = 0; i < MAX_FRAMES; i++)
 	{

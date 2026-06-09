@@ -1,6 +1,19 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   pipeline.c                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/09 13:20:27 by aginiaux          #+#    #+#             */
+/*   Updated: 2026/06/09 15:04:24 by aginiaux         ###   ########lyon.fr   */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "vulkan/pipeline.h"
 #include "load_files.h"
 #include "vulkan/shader_types.h"
+#include <vulkan/vulkan_core.h>
 
 static VkShaderModule create_shader_module(t_app *a, const char *path)
 {
@@ -110,8 +123,8 @@ void create_graphics_pipeline(t_app *a)
 # else
         .polygonMode = VK_POLYGON_MODE_LINE,
 #endif
-        .cullMode    = VK_CULL_MODE_NONE,   /* no backface culling for now */
-        .frontFace   = VK_FRONT_FACE_CLOCKWISE,
+        .cullMode    = VK_CULL_MODE_BACK_BIT,   /* no backface culling for now */
+        .frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth   = 1.0f,
     };
 
@@ -152,7 +165,7 @@ void create_graphics_pipeline(t_app *a)
 
 	// pipeline layout
 	VkPushConstantRange pc_range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		.offset     = 0,
 		.size       = sizeof(t_push_constants_graphics),
 	};
@@ -186,5 +199,121 @@ void create_graphics_pipeline(t_app *a)
 	VK_CHECK(vkCreateGraphicsPipelines(a->device, VK_NULL_HANDLE, 1, &pipeline_ci, NULL, &a->pipeline_graphics));
 
 	vkDestroyShaderModule(a->device, vert_module, NULL);
+    vkDestroyShaderModule(a->device, frag_module, NULL);
+}
+
+void create_outline_pipeline(t_app *a)
+{
+    VkShaderModule vert_module = create_shader_module(a, "assets/shaders/boids_graphics.vert.spv");
+    VkShaderModule frag_module = create_shader_module(a, "assets/shaders/boids_graphics.frag.spv");
+
+    VkPipelineShaderStageCreateInfo stages[2] = {
+        {
+            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vert_module,
+            .pName  = "main",
+        },
+        {
+            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = frag_module,
+            .pName  = "main",
+        },
+    };
+
+    VkPipelineVertexInputStateCreateInfo vertex_input = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo input_assembly = {
+        .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    };
+
+    VkPipelineViewportStateCreateInfo viewport_state = {
+        .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount  = 1,
+    };
+
+    VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode    = VK_CULL_MODE_FRONT_BIT,
+        .frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .lineWidth   = 1.0f,
+		.depthBiasEnable  = VK_TRUE,
+		.depthBiasConstantFactor = 0.0f,
+		.depthBiasSlopeFactor    = 1.0f,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisampling = {
+        .sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    VkPipelineColorBlendAttachmentState blend_attachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+        .blendEnable    = VK_FALSE,
+    };
+    VkPipelineColorBlendStateCreateInfo color_blending = {
+        .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments    = &blend_attachment,
+    };
+
+    VkDynamicState dynamic_states[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+    };
+    VkPipelineDynamicStateCreateInfo dynamic_state = {
+        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = 2,
+        .pDynamicStates    = dynamic_states,
+    };
+
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {
+        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable   = VK_TRUE,
+        .depthWriteEnable  = VK_FALSE,
+		.depthCompareOp    = VK_COMPARE_OP_LESS,
+    };
+
+    VkPushConstantRange pc_range = {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset     = 0,
+        .size       = sizeof(t_push_constants_graphics),
+    };
+    a->pipeline_outline_layout = create_pipeline_layout(a->device, 0, NULL, 1, &pc_range);
+
+    VkPipelineRenderingCreateInfo rendering_ci = {
+        .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .colorAttachmentCount    = 1,
+        .pColorAttachmentFormats = &a->sc_format,
+        .depthAttachmentFormat   = a->depth_format,
+    };
+
+    VkGraphicsPipelineCreateInfo pipeline_ci = {
+        .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext               = &rendering_ci,
+        .stageCount          = 2,
+        .pStages             = stages,
+        .pVertexInputState   = &vertex_input,
+        .pInputAssemblyState = &input_assembly,
+        .pViewportState      = &viewport_state,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState   = &multisampling,
+        .pColorBlendState    = &color_blending,
+        .pDynamicState       = &dynamic_state,
+        .pDepthStencilState  = &depth_stencil,
+        .layout              = a->pipeline_outline_layout,
+        .renderPass          = VK_NULL_HANDLE,
+    };
+
+    VK_CHECK(vkCreateGraphicsPipelines(a->device, VK_NULL_HANDLE, 1, &pipeline_ci, NULL, &a->pipeline_outline));
+
+    vkDestroyShaderModule(a->device, vert_module, NULL);
     vkDestroyShaderModule(a->device, frag_module, NULL);
 }

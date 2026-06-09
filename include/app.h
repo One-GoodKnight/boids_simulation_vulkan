@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   app.h                                              :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
+/*   Updated: 2026/06/09 13:28:33 by aginiaux         ###   ########lyon.fr   */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef APP_H
 # define APP_H
 
@@ -97,10 +109,12 @@ typedef struct s_app {
 	VkDescriptorSet       bindless_set;
 
 	/* Pipelines */
-	VkPipelineLayout  pipeline_graphics_layout;
-	VkPipeline        pipeline_graphics;
 	VkPipelineLayout  pipeline_compute_layout;
 	VkPipeline        pipeline_compute;
+	VkPipeline        pipeline_graphics;
+	VkPipelineLayout  pipeline_graphics_layout;
+	VkPipeline        pipeline_outline;
+	VkPipelineLayout  pipeline_outline_layout;
 
 	t_camera          camera;
 } t_app;

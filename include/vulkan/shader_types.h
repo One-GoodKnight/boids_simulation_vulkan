@@ -2,6 +2,7 @@
 # define SHADER_TYPES_H
 
 # include <stdint.h>
+# include <stdbool.h>
 
 /* BOTH */
 
@@ -44,6 +45,7 @@ typedef struct s_push_constants_compute {
 
 typedef struct s_vertex {
 	float position[3];
+	float normal[3];
 	float uv[2];
 } t_vertex;
 
@@ -51,8 +53,7 @@ typedef struct s_push_constants_graphics {
     float    mvp[16];
     uint64_t scene;
 
-	float    min_vel;
-	float    max_vel;
+	float    outline_thickness;
 } t_push_constants_graphics;
 
 #endif

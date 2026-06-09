@@ -17,10 +17,14 @@ Mesh load_mesh_from_gltf_file(const char *path)
     cgltf_primitive *prim = &data->meshes[0].primitives[0];
 
     cgltf_accessor *pos_acc = NULL;
+	cgltf_accessor *normal_acc = NULL;
     cgltf_accessor *uv_acc  = NULL;
+
     for (size_t i = 0; i < prim->attributes_count; i++) {
         if (prim->attributes[i].type == cgltf_attribute_type_position)
             pos_acc = prim->attributes[i].data;
+		if (prim->attributes[i].type == cgltf_attribute_type_normal)
+        	normal_acc = prim->attributes[i].data;
         if (prim->attributes[i].type == cgltf_attribute_type_texcoord)
             uv_acc  = prim->attributes[i].data;
     }
@@ -32,6 +36,8 @@ Mesh load_mesh_from_gltf_file(const char *path)
 
     for (uint32_t i = 0; i < mesh.vertex_count; i++) {
         cgltf_accessor_read_float(pos_acc, i, mesh.vertices[i].position, 3);
+		if (normal_acc)
+        	cgltf_accessor_read_float(normal_acc, i, mesh.vertices[i].normal, 3);
         if (uv_acc)
             cgltf_accessor_read_float(uv_acc, i, mesh.vertices[i].uv, 2);
     }

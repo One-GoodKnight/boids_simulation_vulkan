@@ -8,6 +8,8 @@
 # define CAMERA_SPEED 70
 # define FOV 70.0f
 
+# define OUTLINE 0.02f
+
 typedef struct s_camera {
 	vec3              position;
 	vec3              direction;
