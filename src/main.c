@@ -353,6 +353,8 @@ int main(void)
 
 		if (keyboard_state[SDL_SCANCODE_F])
 			dt *= 5;
+		else if (keyboard_state[SDL_SCANCODE_G])
+			dt *= 20;
 
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);
 		if (wf & SDL_WINDOW_MINIMIZED) { SDL_Delay(16); continue; }
