@@ -310,6 +310,7 @@ int main(void)
 
 	pick_physical_device(&a);
 	create_device(&a);
+	create_frame_resources(&a);
 	create_swapchain(&a);
 	create_depth_buffer(&a);
 	create_scene_buffer(&a);
@@ -321,7 +322,6 @@ int main(void)
 	create_compute_pipeline(&a);
 	create_graphics_pipeline(&a);
 	create_outline_pipeline(&a);
-	create_frame_resources(&a);
 
 	init_camera(&a.camera);
 	uint64_t last_time = SDL_GetTicksNS();

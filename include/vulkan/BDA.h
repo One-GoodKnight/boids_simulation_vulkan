@@ -4,6 +4,7 @@
 # include "app.h"
 
 void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags properties,
                           bool device_address, VkBuffer *buffer, VkDeviceMemory *memory);
 
 void upload_buffer(t_app *a, VkDeviceMemory memory,
