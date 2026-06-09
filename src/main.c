@@ -316,7 +316,7 @@ int main(void)
 	create_scene_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cone.glb");
 	upload_mesh(&a);
-	upload_boids(&a, 10000);
+	upload_boids(&a, 50000);
 	upload_scene(&a);
 	create_bindless_descriptors(&a);
 	create_compute_pipeline(&a);
@@ -333,7 +333,7 @@ int main(void)
 		uint64_t cur_time = SDL_GetTicksNS();
 		dt = (float)(cur_time - last_time) / 1000000000.0f;
 		last_time = cur_time;
-		// printf("FPS: %d\n", (int)(1.0f / dt));
+		printf("FPS: %d\n", (int)(1.0f / dt));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
