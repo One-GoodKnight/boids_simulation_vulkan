@@ -1,4 +1,4 @@
-#include "app.h"
+#include "vulkan/pipeline.h"
 #include "load_files.h"
 #include "vulkan/shader_types.h"
 
@@ -141,6 +141,15 @@ void create_graphics_pipeline(t_app *a)
         .pDynamicStates    = dynamic_states,
     };
 
+	VkPipelineDepthStencilStateCreateInfo depth_stencil = {
+		.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		.depthTestEnable       = VK_TRUE,
+		.depthWriteEnable      = VK_TRUE,
+		.depthCompareOp        = VK_COMPARE_OP_LESS,
+		.depthBoundsTestEnable = VK_FALSE,
+		.stencilTestEnable     = VK_FALSE,
+	};
+
 	// pipeline layout
 	VkPushConstantRange pc_range = {
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
@@ -153,6 +162,7 @@ void create_graphics_pipeline(t_app *a)
         .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
         .colorAttachmentCount    = 1,
         .pColorAttachmentFormats = &a->sc_format,
+		.depthAttachmentFormat   = a->depth_format,
     };
 
 	// assemble the pipeline
@@ -168,6 +178,7 @@ void create_graphics_pipeline(t_app *a)
         .pMultisampleState   = &multisampling,
         .pColorBlendState    = &color_blending,
         .pDynamicState       = &dynamic_state,
+		.pDepthStencilState  = &depth_stencil,
         .layout              = a->pipeline_graphics_layout,
         .renderPass          = VK_NULL_HANDLE,  /* not needed with dynamic rendering */
     };

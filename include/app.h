@@ -63,6 +63,12 @@ typedef struct s_app {
 	VkSemaphore      *image_available;
 	VkSemaphore      *render_finished;
 
+	/* depth buffer */
+	VkImage        depth_image;
+	VkDeviceMemory depth_memory;
+	VkImageView    depth_view;
+	VkFormat       depth_format;
+
 	/* commands */
 	VkCommandPool     cmd_pool;
 	t_frame           frames[MAX_FRAMES];

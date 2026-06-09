@@ -6,7 +6,9 @@ SRC_DIR			:= src
 SRCS			:= 								\
 	vulkan/BDA/create_buffer.c					\
 	vulkan/BDA/upload.c							\
-	vulkan/create_pipeline.c					\
+	vulkan/depth.c								\
+	vulkan/pipeline.c							\
+	vulkan/swapchain.c							\
 	main.c										\
 	camera.c									\
 	load_files/load_gltf_file.c					\

@@ -1,5 +1,5 @@
-#ifndef CREATE_PIPELINE_H
-# define CREATE_PIPELINE_H
+#ifndef PIPELINE_H
+# define PIPELINE_H
 
 # include "app.h"
 
