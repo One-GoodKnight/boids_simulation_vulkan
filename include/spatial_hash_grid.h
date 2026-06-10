@@ -6,10 +6,10 @@
 # define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 # define SPATIAL_HASH_GRID_SLOT_FACTOR 4
-# define SPATIAL_HASH_GRID_SIZE MAX(     \
-		 BOID_SEPARATION_RADIUS,         \
-		 MAX(BOID_ALIGNMENT_RADIUS,      \
-		 BOID_COHESION_RADIUS            \
-	))
+# define SPATIAL_HASH_GRID_SIZE ((int)ceil(MAX(  \
+		 BOID_SEPARATION_RADIUS,                 \
+		 MAX(BOID_ALIGNMENT_RADIUS,              \
+		 BOID_COHESION_RADIUS                    \
+	))))
 
 #endif

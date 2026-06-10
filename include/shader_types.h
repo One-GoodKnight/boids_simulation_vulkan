@@ -21,6 +21,7 @@ typedef struct s_push_constants_compute_spatial_hash {
     uint64_t scene;
 
 	uint64_t boid_slot_buffer;
+	uint64_t slot_boid_count_buffer;
 
 	uint32_t boid_count;
 

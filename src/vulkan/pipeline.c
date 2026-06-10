@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:20:27 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/10 14:53:03 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/10 19:57:28 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,7 +51,11 @@ static VkPipelineLayout create_pipeline_layout(
     return layout;
 }
 
-void create_compute_spatial_hash_pipelines(t_app *a, const char *boid_cell_path)
+void create_compute_spatial_hash_pipelines(
+	t_app *a,
+	const char *boid_slot_path,
+	const char *slot_count_path
+)
 {
 	VkPushConstantRange pc_range = {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -60,19 +64,24 @@ void create_compute_spatial_hash_pipelines(t_app *a, const char *boid_cell_path)
     };
     a->pipeline_compute_spatial_hash_grid_layout = create_pipeline_layout(a->device, 0, NULL, 1, &pc_range);
 
-    VkShaderModule boid_cell_module = create_shader_module(a, boid_cell_path);
+    VkShaderModule boid_slot_module = create_shader_module(a, boid_slot_path);
 	VkComputePipelineCreateInfo ci = {
         .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .stage  = {
             .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
-            .module = boid_cell_module,
+            .module = boid_slot_module,
             .pName  = "main",
         },
         .layout = a->pipeline_compute_spatial_hash_grid_layout,
     };
-    VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_boid_cell));
-    vkDestroyShaderModule(a->device, boid_cell_module, NULL);
+    VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_boid_slot));
+    vkDestroyShaderModule(a->device, boid_slot_module, NULL);
+
+	VkShaderModule slot_count_module = create_shader_module(a, slot_count_path);
+	ci.stage.module = slot_count_module;
+    VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_slot_boid_count));
+    vkDestroyShaderModule(a->device, slot_count_module, NULL);
 }
 
 void create_compute_pipeline(t_app *a, const char *path)

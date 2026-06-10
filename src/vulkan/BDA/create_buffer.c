@@ -1,4 +1,17 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   create_buffer.c                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/10 19:09:52 by aginiaux          #+#    #+#             */
+/*   Updated: 2026/06/10 20:01:36 by aginiaux         ###   ########lyon.fr   */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "app.h"
+#include "spatial_hash_grid.h"
 
 /* ================================================================== */
 /*  Buffer Device Address — small scene-data buffer
@@ -56,8 +69,9 @@ void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
 
 void create_spatial_hash_buffers(t_app *a)
 {
+	/* boid slot */
 	create_buffer(a, sizeof(uint32_t) * a->boid_count,
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT        |
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			true, &a->boid_slot_buffer, &a->boid_slot_memory);
@@ -67,6 +81,17 @@ void create_spatial_hash_buffers(t_app *a)
         .buffer = a->boid_slot_buffer,
     };
     a->boid_slot_address = vkGetBufferDeviceAddress(a->device, &bdai);
+
+	/* slot count */
+	create_buffer(a, sizeof(uint32_t) * a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT   |
+			VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			true, &a->slot_boid_count_buffer, &a->slot_boid_count_memory);
+
+	bdai.buffer = a->slot_boid_count_buffer;
+    a->slot_boid_count_address = vkGetBufferDeviceAddress(a->device, &bdai);
 }
 
 void create_scene_buffer(t_app *a)

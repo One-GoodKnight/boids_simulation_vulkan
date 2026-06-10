@@ -3,20 +3,20 @@ NAME			:= vulkan
 BUILD_DIR		:= .build
 
 SRC_DIR			:= src
-SRCS			:= 								\
-	vulkan/BDA/create_buffer.c					\
-	vulkan/BDA/upload.c							\
-	vulkan/bindless.c							\
-	vulkan/depth.c								\
-	vulkan/device.c								\
-	vulkan/frame.c								\
-	vulkan/instance.c							\
-	vulkan/pipeline.c							\
-	vulkan/swapchain.c							\
-	main.c										\
-	camera.c									\
-	load_files/load_gltf_file.c					\
-	load_files/load_spirv_file.c				\
+SRCS			:= 									\
+	vulkan/BDA/create_buffer.c						\
+	vulkan/BDA/upload.c								\
+	vulkan/bindless.c								\
+	vulkan/depth.c									\
+	vulkan/device.c									\
+	vulkan/frame.c									\
+	vulkan/instance.c								\
+	vulkan/pipeline.c								\
+	vulkan/swapchain.c								\
+	main.c											\
+	camera.c										\
+	load_files/load_gltf_file.c						\
+	load_files/load_spirv_file.c					\
 
 INCLUDES		:= include
 
@@ -30,15 +30,16 @@ CPPFLAGS		:= -I$(INCLUDES) -MMD -MP
 LDFLAGS 		:= -lSDL3 -lvulkan -lcglm -lm
 
 SHADER_DIR		:= assets/shaders
-SHADERS_VERT	:=								\
-	boids_graphics								\
+SHADERS_VERT	:=									\
+	boids_graphics									\
 
-SHADERS_FRAG	:=								\
-	boids_graphics								\
+SHADERS_FRAG	:=									\
+	boids_graphics									\
 
-SHADERS_COMP	:=								\
-	spatial_hash_grid/boids_compute_boid_slot	\
-	boids_compute								\
+SHADERS_COMP	:=									\
+	spatial_hash_grid/boids_compute_boid_slot		\
+	spatial_hash_grid/boids_compute_slot_boid_count	\
+	boids_compute									\
 
 SPVS_VERT		:= $(SHADERS_VERT:%=$(SHADER_DIR)/%.vert.spv)
 SPVS_FRAG		:= $(SHADERS_FRAG:%=$(SHADER_DIR)/%.frag.spv)

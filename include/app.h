@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/10 15:08:47 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/10 19:54:29 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -114,11 +114,16 @@ typedef struct s_app {
 	/* Spatial hash grid */
 	VkPipelineLayout  pipeline_compute_spatial_hash_grid_layout;
 
-	VkBuffer          boid_slot_buffer;   /* which cell each boid belongs to */
+	VkBuffer          boid_slot_buffer;   /* which slot each boid belongs to */
     VkDeviceMemory    boid_slot_memory;
     VkDeviceAddress   boid_slot_address;
 
-	VkPipeline        pipeline_compute_boid_cell;
+	VkBuffer          slot_boid_count_buffer;   /* how many boids per slot */
+    VkDeviceMemory    slot_boid_count_memory;
+    VkDeviceAddress   slot_boid_count_address;
+
+	VkPipeline        pipeline_compute_boid_slot;
+	VkPipeline        pipeline_compute_slot_boid_count;
 
 	/* Bindless (Descriptor Indexing) */
 	VkDescriptorSetLayout bindless_layout;

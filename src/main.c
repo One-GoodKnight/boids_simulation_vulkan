@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <vulkan/vulkan_core.h>
 
 #include "boids.h"
 #include "vulkan/BDA.h"
@@ -102,14 +103,15 @@ static int draw_frame(t_app *a, float dt)
 
 	/* debug */
 	void *mapped;
-	vkMapMemory(a->device, a->boid_slot_memory, 0, VK_WHOLE_SIZE, 0, &mapped);
-	uint32_t *cell = (uint32_t *)mapped;
-	int all_ones = 1;
-	for (uint32_t i = 0; i < a->boid_count; i++) {
-		if (cell[i] != 1) { all_ones = 0; break; }
+	vkMapMemory(a->device, a->slot_boid_count_memory, 0, VK_WHOLE_SIZE, 0, &mapped);
+	uint32_t *slot = (uint32_t *)mapped;
+	int at_least_one_non_zero = false;
+	uint32_t j = 0;
+	for (uint32_t i = 0; i < a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR; i++) {
+		if (slot[i] != 0) { at_least_one_non_zero = true; j = i; break; }
 	}
-	printf("boid_cell all 1s: %s\n", all_ones ? "yes" : "no");
-	vkUnmapMemory(a->device, a->boid_slot_memory);
+	printf("at least one slot count non zero: %s | %d\n", at_least_one_non_zero ? "yes" : "no", j);
+	vkUnmapMemory(a->device, a->slot_boid_count_memory);
 	/* debug */
 
 	uint32_t img_index;
@@ -138,18 +140,37 @@ static int draw_frame(t_app *a, float dt)
 	t_push_constants_compute_spatial_hash shgpc = {
 		.scene = a->scene_address,
 		.boid_slot_buffer = a->boid_slot_address,
+		.slot_boid_count_buffer = a->slot_boid_count_address,
 		.boid_count = a->boid_count,
 		.slot_count = a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR,
-		.cell_size = SPATIAL_HASH_GRID_SLOT_FACTOR,
+		.cell_size = SPATIAL_HASH_GRID_SIZE,
 	};
 
-	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_boid_cell);
+	/* Compute = boid slot */
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_boid_slot);
 	vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
 					   VK_SHADER_STAGE_COMPUTE_BIT,
 					   0, sizeof(t_push_constants_compute_spatial_hash), &shgpc);
 	vkCmdDispatch(f->cmd, (a->boid_count + 63) / 64, 1, 1);
 
 	buffer_barrier(a, f->cmd, a->boid_slot_buffer,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+
+	/* Compute = slot count */
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_boid_count);
+
+	vkCmdFillBuffer(f->cmd, a->slot_boid_count_buffer, 0, VK_WHOLE_SIZE, 0);
+	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
+    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT);
+
+	vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
+					   VK_SHADER_STAGE_COMPUTE_BIT,
+					   0, sizeof(t_push_constants_compute_spatial_hash), &shgpc);
+	vkCmdDispatch(f->cmd, (a->boid_count + 63) / 64, 1, 1);
+
+	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
@@ -362,7 +383,8 @@ int main(void)
 	create_bindless_descriptors(&a);
 	create_compute_spatial_hash_pipelines(
 		&a,
-		"assets/shaders/spatial_hash_grid/boids_compute_boid_slot.comp.spv"
+		"assets/shaders/spatial_hash_grid/boids_compute_boid_slot.comp.spv",
+		"assets/shaders/spatial_hash_grid/boids_compute_slot_boid_count.comp.spv"
 	);
 	create_compute_pipeline(&a, "assets/shaders/boids_compute.comp.spv");
 	create_graphics_pipeline(&a);
@@ -378,7 +400,7 @@ int main(void)
 		uint64_t cur_time = SDL_GetTicksNS();
 		dt = (float)(cur_time - last_time) / 1000000000.0f;
 		last_time = cur_time;
-		printf("FPS: %d\n", (int)(1.0f / dt));
+		// printf("FPS: %d\n", (int)(1.0f / dt));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
@@ -432,7 +454,8 @@ int main(void)
 	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
-	vkDestroyPipeline      (a.device, a.pipeline_compute_boid_cell, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_boid_count, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute_boid_slot, NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_spatial_hash_grid_layout, NULL);
 
 	for (int i = 0; i < MAX_FRAMES; i++)
@@ -446,6 +469,8 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
+	vkFreeMemory   (a.device, a.slot_boid_count_memory, NULL);
+	vkDestroyBuffer(a.device, a.slot_boid_count_buffer, NULL);
 	vkFreeMemory   (a.device, a.boid_slot_memory, NULL);
 	vkDestroyBuffer(a.device, a.boid_slot_buffer, NULL);
 	vkFreeMemory   (a.device, a.boid_memory, NULL);
