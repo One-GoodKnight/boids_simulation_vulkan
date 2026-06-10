@@ -316,7 +316,7 @@ int main(void)
 	create_scene_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cone.glb");
 	upload_mesh(&a);
-	upload_boids(&a, 50000);
+	upload_boids(&a, 10000);
 	upload_scene(&a);
 	create_bindless_descriptors(&a);
 	create_compute_pipeline(&a);

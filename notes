@@ -5,4 +5,5 @@ Families - Groups that the gpu treats differently, with different parts to go fa
 
 SwapChain - multi buffers, sync, os requirements
 
-
+profiling
+SDL_VIDEO_DRIVER=x11 qrenderdoc
