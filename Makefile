@@ -37,6 +37,7 @@ SHADERS_FRAG	:=								\
 	boids_graphics								\
 
 SHADERS_COMP	:=								\
+	spatial_hash_grid/boids_compute_boid_slot	\
 	boids_compute								\
 
 SPVS_VERT		:= $(SHADERS_VERT:%=$(SHADER_DIR)/%.vert.spv)

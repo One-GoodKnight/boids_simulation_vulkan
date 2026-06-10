@@ -10,6 +10,8 @@ void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
 void upload_buffer(t_app *a, VkDeviceMemory memory,
                           const void *data, VkDeviceSize size);
 
+void create_spatial_hash_buffers(t_app *a);
+
 void create_scene_buffer(t_app *a);
 
 void upload_mesh(t_app *a);

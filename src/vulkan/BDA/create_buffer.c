@@ -40,6 +40,10 @@ void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
         .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
     };
+
+	// TEMP DEBUG
+	properties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
     VkMemoryAllocateInfo mai = {
         .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext           = device_address ? &maf : NULL,
@@ -48,6 +52,21 @@ void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
     };
     VK_CHECK(vkAllocateMemory(a->device, &mai, NULL, memory));
     VK_CHECK(vkBindBufferMemory(a->device, *buffer, *memory, 0));
+}
+
+void create_spatial_hash_buffers(t_app *a)
+{
+	create_buffer(a, sizeof(uint32_t) * a->boid_count,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT        |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			true, &a->boid_slot_buffer, &a->boid_slot_memory);
+
+	VkBufferDeviceAddressInfo bdai = {
+        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .buffer = a->boid_slot_buffer,
+    };
+    a->boid_slot_address = vkGetBufferDeviceAddress(a->device, &bdai);
 }
 
 void create_scene_buffer(t_app *a)

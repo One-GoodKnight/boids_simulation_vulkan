@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/09 13:28:33 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/10 15:08:47 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,8 +56,7 @@ typedef struct s_app {
 	VkQueue           graphics_q;
 	VkQueue           present_q;
 
-	/* function pointers for Vulkan 1.3 entry points
-	   (loaded dynamically so we work even if the header predates 1.3) */
+	/* function pointers for Vulkan 1.3 entry points, might want to look into Volt */
 	PFN_vkCmdBeginRendering    fn_CmdBeginRendering;
 	PFN_vkCmdEndRendering      fn_CmdEndRendering;
 	PFN_vkCmdPipelineBarrier2  fn_CmdPipelineBarrier2;
@@ -103,18 +102,28 @@ typedef struct s_app {
 
 	Mesh              mesh;
 
-	/* Bindless (Descriptor Indexing) */
-	VkDescriptorSetLayout bindless_layout;
-	VkDescriptorPool      bindless_pool;
-	VkDescriptorSet       bindless_set;
-
 	/* Pipelines */
 	VkPipelineLayout  pipeline_compute_layout;
 	VkPipeline        pipeline_compute;
+
 	VkPipeline        pipeline_graphics;
 	VkPipelineLayout  pipeline_graphics_layout;
 	VkPipeline        pipeline_outline;
 	VkPipelineLayout  pipeline_outline_layout;
+
+	/* Spatial hash grid */
+	VkPipelineLayout  pipeline_compute_spatial_hash_grid_layout;
+
+	VkBuffer          boid_slot_buffer;   /* which cell each boid belongs to */
+    VkDeviceMemory    boid_slot_memory;
+    VkDeviceAddress   boid_slot_address;
+
+	VkPipeline        pipeline_compute_boid_cell;
+
+	/* Bindless (Descriptor Indexing) */
+	VkDescriptorSetLayout bindless_layout;
+	VkDescriptorPool      bindless_pool;
+	VkDescriptorSet       bindless_set;
 
 	t_camera          camera;
 } t_app;

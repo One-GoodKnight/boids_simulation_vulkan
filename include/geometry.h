@@ -3,7 +3,7 @@
 
 # include <stdint.h>
 
-# include "vulkan/shader_types.h"
+# include "shader_types.h"
 
 typedef struct {
 	t_vertex *vertices;

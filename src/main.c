@@ -12,10 +12,11 @@
 #include "vulkan/instance.h"
 #include "vulkan/pipeline.h"
 #include "vulkan/swapchain.h"
-#include "vulkan/shader_types.h"
 #include "app.h"
 #include "camera.h"
 #include "load_files.h"
+#include "shader_types.h"
+#include "spatial_hash_grid.h"
 
 /* ================================================================== */
 /*  Synchronization2 helpers
@@ -63,6 +64,29 @@ static void transition_image(t_app *a,
 	a->fn_CmdPipelineBarrier2(cmd, &dep);
 }
 
+static void buffer_barrier(t_app *a, VkCommandBuffer cmd, VkBuffer buffer,
+    VkPipelineStageFlags2 src_stage, VkAccessFlags2 src_access,
+    VkPipelineStageFlags2 dst_stage, VkAccessFlags2 dst_access)
+{
+    VkBufferMemoryBarrier2 b = {
+        .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+        .srcStageMask        = src_stage,
+        .srcAccessMask       = src_access,
+        .dstStageMask        = dst_stage,
+        .dstAccessMask       = dst_access,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer              = buffer,
+        .size                = VK_WHOLE_SIZE,
+    };
+    VkDependencyInfo dep = {
+        .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers    = &b,
+    };
+    a->fn_CmdPipelineBarrier2(cmd, &dep);
+}
+
 /* ================================================================== */
 /*  Draw one frame
  *
@@ -75,6 +99,18 @@ static int draw_frame(t_app *a, float dt)
 	t_frame *f = &a->frames[a->frame_index % MAX_FRAMES];
 
 	vkWaitForFences(a->device, 1, &f->in_flight, VK_TRUE, UINT64_MAX);
+
+	/* debug */
+	void *mapped;
+	vkMapMemory(a->device, a->boid_slot_memory, 0, VK_WHOLE_SIZE, 0, &mapped);
+	uint32_t *cell = (uint32_t *)mapped;
+	int all_ones = 1;
+	for (uint32_t i = 0; i < a->boid_count; i++) {
+		if (cell[i] != 1) { all_ones = 0; break; }
+	}
+	printf("boid_cell all 1s: %s\n", all_ones ? "yes" : "no");
+	vkUnmapMemory(a->device, a->boid_slot_memory);
+	/* debug */
 
 	uint32_t img_index;
 	VkResult r = vkAcquireNextImageKHR(
@@ -97,6 +133,25 @@ static int draw_frame(t_app *a, float dt)
 	VK_CHECK(vkBeginCommandBuffer(f->cmd, &bi));
 
 	VkImage sc_img = a->sc_images[img_index];
+
+	/* Compute - spatial hash grid */
+	t_push_constants_compute_spatial_hash shgpc = {
+		.scene = a->scene_address,
+		.boid_slot_buffer = a->boid_slot_address,
+		.boid_count = a->boid_count,
+		.slot_count = a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR,
+		.cell_size = SPATIAL_HASH_GRID_SLOT_FACTOR,
+	};
+
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_boid_cell);
+	vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
+					   VK_SHADER_STAGE_COMPUTE_BIT,
+					   0, sizeof(t_push_constants_compute_spatial_hash), &shgpc);
+	vkCmdDispatch(f->cmd, (a->boid_count + 63) / 64, 1, 1);
+
+	buffer_barrier(a, f->cmd, a->boid_slot_buffer,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
 	/* Compute - update boids */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute);
@@ -121,24 +176,9 @@ static int draw_frame(t_app *a, float dt)
 					   0, sizeof(t_push_constants_compute), &cpc);
 	vkCmdDispatch(f->cmd, (a->boid_count + 63) / 64, 1, 1);
 
-	/* Barrier — compute write must finish before vertex shader reads */
-	VkBufferMemoryBarrier2 boid_barrier = {
-		.sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-		.srcStageMask        = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-		.srcAccessMask       = VK_ACCESS_2_SHADER_WRITE_BIT,
-		.dstStageMask        = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,
-		.dstAccessMask       = VK_ACCESS_2_SHADER_READ_BIT,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.buffer              = a->boid_buffer,
-		.size                = VK_WHOLE_SIZE,
-	};
-	VkDependencyInfo dep = {
-		.sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-		.bufferMemoryBarrierCount = 1,
-		.pBufferMemoryBarriers    = &boid_barrier,
-	};
-	a->fn_CmdPipelineBarrier2(f->cmd, &dep);
+	buffer_barrier(a, f->cmd, a->boid_buffer,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT,  VK_ACCESS_2_SHADER_READ_BIT);
 
 	/* Transition: UNDEFINED/PRESENT → COLOR_ATTACHMENT_OPTIMAL */
 	transition_image(a, f->cmd, sc_img,
@@ -318,8 +358,13 @@ int main(void)
 	upload_mesh(&a);
 	upload_boids(&a, 10000);
 	upload_scene(&a);
+	create_spatial_hash_buffers(&a);
 	create_bindless_descriptors(&a);
-	create_compute_pipeline(&a);
+	create_compute_spatial_hash_pipelines(
+		&a,
+		"assets/shaders/spatial_hash_grid/boids_compute_boid_slot.comp.spv"
+	);
+	create_compute_pipeline(&a, "assets/shaders/boids_compute.comp.spv");
 	create_graphics_pipeline(&a);
 	create_outline_pipeline(&a);
 
@@ -387,6 +432,8 @@ int main(void)
 	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute_boid_cell, NULL);
+	vkDestroyPipelineLayout(a.device, a.pipeline_compute_spatial_hash_grid_layout, NULL);
 
 	for (int i = 0; i < MAX_FRAMES; i++)
 	{
@@ -399,6 +446,8 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
+	vkFreeMemory   (a.device, a.boid_slot_memory, NULL);
+	vkDestroyBuffer(a.device, a.boid_slot_buffer, NULL);
 	vkFreeMemory   (a.device, a.boid_memory, NULL);
 	vkDestroyBuffer(a.device, a.boid_buffer, NULL);
 	vkFreeMemory   (a.device, a.index_memory, NULL);

@@ -6,14 +6,15 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:20:27 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/09 15:04:24 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/10 14:53:03 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
+#include <vulkan/vulkan_core.h>
+
 #include "vulkan/pipeline.h"
 #include "load_files.h"
-#include "vulkan/shader_types.h"
-#include <vulkan/vulkan_core.h>
+#include "shader_types.h"
 
 static VkShaderModule create_shader_module(t_app *a, const char *path)
 {
@@ -50,9 +51,33 @@ static VkPipelineLayout create_pipeline_layout(
     return layout;
 }
 
-void create_compute_pipeline(t_app *a)
+void create_compute_spatial_hash_pipelines(t_app *a, const char *boid_cell_path)
 {
-    VkShaderModule comp_module = create_shader_module(a, "assets/shaders/boids_compute.comp.spv");
+	VkPushConstantRange pc_range = {
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        .offset     = 0,
+        .size       = sizeof(t_push_constants_compute),
+    };
+    a->pipeline_compute_spatial_hash_grid_layout = create_pipeline_layout(a->device, 0, NULL, 1, &pc_range);
+
+    VkShaderModule boid_cell_module = create_shader_module(a, boid_cell_path);
+	VkComputePipelineCreateInfo ci = {
+        .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .stage  = {
+            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
+            .module = boid_cell_module,
+            .pName  = "main",
+        },
+        .layout = a->pipeline_compute_spatial_hash_grid_layout,
+    };
+    VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_boid_cell));
+    vkDestroyShaderModule(a->device, boid_cell_module, NULL);
+}
+
+void create_compute_pipeline(t_app *a, const char *path)
+{
+    VkShaderModule comp_module = create_shader_module(a, path);
 
     VkPushConstantRange pc_range = {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,

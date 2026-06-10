@@ -17,7 +17,7 @@ void upload_buffer_through_staging(t_app *a, void *data, VkDeviceSize size,
                             VkBufferUsageFlags usage, bool device_address,
                             VkBuffer *dst_buffer, VkDeviceMemory *dst_memory)
 {
-	// 	/* temp staging buffer to put data on the gpu */
+	/* temp staging buffer to put data on the gpu */
     VkBuffer staging_buffer;
     VkDeviceMemory staging_memory;
     create_buffer(a, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
