@@ -41,6 +41,7 @@ SHADERS_COMP	:=											\
 	spatial_hash_grid/boids_compute_boid_slot				\
 	spatial_hash_grid/boids_compute_slot_boid_count			\
 	spatial_hash_grid/boids_compute_slot_offset_upsweep 	\
+	spatial_hash_grid/boids_compute_slot_offset_downsweep 	\
 	boids_compute											\
 
 SPVS_VERT		:= $(SHADERS_VERT:%=$(SHADER_DIR)/%.vert.spv)

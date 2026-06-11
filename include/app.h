@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 14:18:35 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 14:35:56 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -130,6 +130,7 @@ typedef struct s_app {
 	VkPipeline        pipeline_compute_boid_slot;
 	VkPipeline        pipeline_compute_slot_boid_count;
 	VkPipeline        pipeline_compute_slot_offset_upsweep;
+	VkPipeline        pipeline_compute_slot_offset_downsweep;
 
 	/* Bindless (Descriptor Indexing) */
 	VkDescriptorSetLayout bindless_layout;

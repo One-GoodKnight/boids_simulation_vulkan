@@ -195,6 +195,35 @@ static int draw_frame(t_app *a, float dt)
 		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 	}
 
+	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+
+	/* Compute - clear last element to 0 */
+	/* clear last element */
+	vkCmdFillBuffer(f->cmd, a->slot_boid_count_buffer,
+		(a->slot_count_padded - 1) * sizeof(uint32_t), sizeof(uint32_t), 0);
+	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+
+	/* Compute = blelloch downsweep */
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_offset_downsweep);
+
+	for (uint32_t stride = a->slot_count_padded / 2; stride >= 1; stride /= 2)
+	{
+		shgpc.stride = stride;
+		vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
+				   VK_SHADER_STAGE_COMPUTE_BIT,
+				   0, sizeof(t_push_constants_compute_spatial_hash), &shgpc);
+
+		vkCmdDispatch(f->cmd, (a->slot_count_padded + 63) / 64, 1, 1);
+
+		buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,   /* uses same buffer */
+		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+	}
+
 	/* Compute - update boids */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute);
 
@@ -406,7 +435,8 @@ int main(void)
 		&a,
 		"assets/shaders/spatial_hash_grid/boids_compute_boid_slot.comp.spv",
 		"assets/shaders/spatial_hash_grid/boids_compute_slot_boid_count.comp.spv",
-		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_upsweep.comp.spv"
+		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_upsweep.comp.spv",
+		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_downsweep.comp.spv"
 	);
 	create_compute_pipeline(&a, "assets/shaders/boids_compute.comp.spv");
 	create_graphics_pipeline(&a);
@@ -476,6 +506,7 @@ int main(void)
 	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_offset_downsweep, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_offset_upsweep, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_boid_count, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_boid_slot, NULL);
