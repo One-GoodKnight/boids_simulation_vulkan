@@ -159,18 +159,6 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 		b.velocity += normalize(diff) * cohesion_force * dt;
 	}
 
-	// avoid border
-	float3 center = float3(0.0f, 0.0f, 0.0f);
-	float3 diff = center - b.position;
-	float dist = length(diff);
-	float dist_passed_border = dist - max_dist;
-	if (dist_passed_border > 0)
-		b.velocity += normalize(diff) * avoid_border_force * dist_passed_border * dt;
-	
-	// simulate downward acceleration
-	if (b.velocity.y < 0)
-		b.velocity *= exp(0.25f * dt);
-
 	float speed = length(b.velocity);
 	if (speed < 0.00001f)
     	b.velocity = float3(0, 0, 1) * min_vel;
@@ -180,6 +168,17 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 		b.velocity = (b.velocity / speed) * max_vel;
 
     b.position += b.velocity * dt;
+
+	// teleport from one border to another
+	float3 center = float3(0.0f, 0.0f, 0.0f);
+	float3 diff = center - b.position;
+	float dist = length(diff);
+	float dist_passed_border = dist - max_dist;
+	if (dist_passed_border > 0)
+	{
+		b.position *= 0.99;
+		b.position *= -1;
+	}
 
     boids[tid.x] = b;
 }
