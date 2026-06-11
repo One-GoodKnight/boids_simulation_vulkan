@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:20:27 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/10 19:57:28 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 12:46:10 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -54,7 +54,8 @@ static VkPipelineLayout create_pipeline_layout(
 void create_compute_spatial_hash_pipelines(
 	t_app *a,
 	const char *boid_slot_path,
-	const char *slot_count_path
+	const char *slot_boid_count_path,
+	const char *slot_offset_upsweep
 )
 {
 	VkPushConstantRange pc_range = {
@@ -78,10 +79,15 @@ void create_compute_spatial_hash_pipelines(
     VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_boid_slot));
     vkDestroyShaderModule(a->device, boid_slot_module, NULL);
 
-	VkShaderModule slot_count_module = create_shader_module(a, slot_count_path);
-	ci.stage.module = slot_count_module;
+	VkShaderModule slot_boid_count_module = create_shader_module(a, slot_boid_count_path);
+	ci.stage.module = slot_boid_count_module;
     VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_slot_boid_count));
-    vkDestroyShaderModule(a->device, slot_count_module, NULL);
+    vkDestroyShaderModule(a->device, slot_boid_count_module, NULL);
+
+	VkShaderModule slot_offset_upsweep_module = create_shader_module(a, slot_offset_upsweep);
+	ci.stage.module = slot_offset_upsweep_module;
+    VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_slot_offset_upsweep));
+    vkDestroyShaderModule(a->device, slot_offset_upsweep_module, NULL);
 }
 
 void create_compute_pipeline(t_app *a, const char *path)

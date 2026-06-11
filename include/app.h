@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/10 19:54:29 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 14:18:35 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,7 +19,7 @@
 
 # include <cglm/cglm.h>
 
-#include "camera.h"
+# include "camera.h"
 # include "geometry.h"
 
 /* ------------------------------------------------------------------- */
@@ -121,9 +121,15 @@ typedef struct s_app {
 	VkBuffer          slot_boid_count_buffer;   /* how many boids per slot */
     VkDeviceMemory    slot_boid_count_memory;
     VkDeviceAddress   slot_boid_count_address;
+	uint32_t          slot_count;
+	uint32_t          slot_count_padded;
+
+    VkDeviceAddress   slot_offset_address;   /* at what offset in the sorted boids buffer the slot starts */
+	                                         /* same address as slot_boid_count (algo reuses the buffer)  */
 
 	VkPipeline        pipeline_compute_boid_slot;
 	VkPipeline        pipeline_compute_slot_boid_count;
+	VkPipeline        pipeline_compute_slot_offset_upsweep;
 
 	/* Bindless (Descriptor Indexing) */
 	VkDescriptorSetLayout bindless_layout;

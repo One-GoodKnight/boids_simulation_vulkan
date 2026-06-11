@@ -11,11 +11,15 @@ struct push_constants {
 
 	uint64_t boid_slot_buffer;
 	uint64_t slot_boid_count_buffer;
+	uint64_t slot_offset_buffer;
 
 	uint32_t boid_count;
 
 	uint32_t slot_count;
+	uint32_t slot_count_padded;
 	float    cell_size;
+
+	uint32_t stride;
 };
 [[vk::push_constant]] push_constants pc;
 

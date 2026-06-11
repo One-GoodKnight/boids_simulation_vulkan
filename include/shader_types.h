@@ -22,11 +22,15 @@ typedef struct s_push_constants_compute_spatial_hash {
 
 	uint64_t boid_slot_buffer;
 	uint64_t slot_boid_count_buffer;
+	uint64_t slot_offset_buffer;   /* same as slot_boid_count_buffer */
 
 	uint32_t boid_count;
 
 	uint32_t slot_count;
+	uint32_t slot_count_padded;
 	float    cell_size;
+
+	uint32_t stride;
 } t_push_constants_compute_spatial_hash;
 
 /* COMPUTE */

@@ -1,4 +1,5 @@
 #include <SDL3/SDL_events.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -102,16 +103,16 @@ static int draw_frame(t_app *a, float dt)
 	vkWaitForFences(a->device, 1, &f->in_flight, VK_TRUE, UINT64_MAX);
 
 	/* debug */
-	void *mapped;
-	vkMapMemory(a->device, a->slot_boid_count_memory, 0, VK_WHOLE_SIZE, 0, &mapped);
-	uint32_t *slot = (uint32_t *)mapped;
-	int at_least_one_non_zero = false;
-	uint32_t j = 0;
-	for (uint32_t i = 0; i < a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR; i++) {
-		if (slot[i] != 0) { at_least_one_non_zero = true; j = i; break; }
-	}
-	printf("at least one slot count non zero: %s | %d\n", at_least_one_non_zero ? "yes" : "no", j);
-	vkUnmapMemory(a->device, a->slot_boid_count_memory);
+	// void *mapped;
+	// vkMapMemory(a->device, a->slot_boid_count_memory, 0, VK_WHOLE_SIZE, 0, &mapped);
+	// uint32_t *slot = (uint32_t *)mapped;
+	// int at_least_one_non_zero = false;
+	// uint32_t j = 0;
+	// for (uint32_t i = 0; i < a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR; i++) {
+	// 	if (slot[i] != 0) { at_least_one_non_zero = true; j = i; break; }
+	// }
+	// printf("at least one slot count non zero: %s | %d\n", at_least_one_non_zero ? "yes" : "no", j);
+	// vkUnmapMemory(a->device, a->slot_boid_count_memory);
 	/* debug */
 
 	uint32_t img_index;
@@ -141,9 +142,12 @@ static int draw_frame(t_app *a, float dt)
 		.scene = a->scene_address,
 		.boid_slot_buffer = a->boid_slot_address,
 		.slot_boid_count_buffer = a->slot_boid_count_address,
+		.slot_offset_buffer = a->slot_offset_address,
 		.boid_count = a->boid_count,
-		.slot_count = a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR,
+		.slot_count = a->slot_count,
+		.slot_count_padded = a->slot_count_padded,
 		.cell_size = SPATIAL_HASH_GRID_SIZE,
+		.stride = 0
 	};
 
 	/* Compute = boid slot */
@@ -172,7 +176,24 @@ static int draw_frame(t_app *a, float dt)
 
 	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+
+	/* Compute = blelloch upsweep */
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_offset_upsweep);
+
+	for (uint32_t stride = 1; stride < a->slot_count_padded; stride *= 2)
+	{
+		shgpc.stride = stride;
+		vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
+				   VK_SHADER_STAGE_COMPUTE_BIT,
+				   0, sizeof(t_push_constants_compute_spatial_hash), &shgpc);
+
+		vkCmdDispatch(f->cmd, (a->slot_count_padded + 63) / 64, 1, 1);
+
+		buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,   /* uses same buffer */
+		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+	}
 
 	/* Compute - update boids */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute);
@@ -384,7 +405,8 @@ int main(void)
 	create_compute_spatial_hash_pipelines(
 		&a,
 		"assets/shaders/spatial_hash_grid/boids_compute_boid_slot.comp.spv",
-		"assets/shaders/spatial_hash_grid/boids_compute_slot_boid_count.comp.spv"
+		"assets/shaders/spatial_hash_grid/boids_compute_slot_boid_count.comp.spv",
+		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_upsweep.comp.spv"
 	);
 	create_compute_pipeline(&a, "assets/shaders/boids_compute.comp.spv");
 	create_graphics_pipeline(&a);
@@ -454,6 +476,7 @@ int main(void)
 	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_offset_upsweep, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_boid_count, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_boid_slot, NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_spatial_hash_grid_layout, NULL);

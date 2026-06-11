@@ -6,12 +6,13 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/10 19:09:52 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/10 20:01:36 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 14:32:38 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "app.h"
 #include "spatial_hash_grid.h"
+#include "vulkan/BDA.h"
 
 /* ================================================================== */
 /*  Buffer Device Address — small scene-data buffer
@@ -83,7 +84,10 @@ void create_spatial_hash_buffers(t_app *a)
     a->boid_slot_address = vkGetBufferDeviceAddress(a->device, &bdai);
 
 	/* slot count */
-	create_buffer(a, sizeof(uint32_t) * a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR,
+	/* power of 2 for blelloch prefix sum algo */
+	a->slot_count = a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR;
+	a->slot_count_padded = next_pow2(a->slot_count);
+	create_buffer(a, sizeof(uint32_t) * a->slot_count_padded,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT   |
 			VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
@@ -92,6 +96,9 @@ void create_spatial_hash_buffers(t_app *a)
 
 	bdai.buffer = a->slot_boid_count_buffer;
     a->slot_boid_count_address = vkGetBufferDeviceAddress(a->device, &bdai);
+
+	/* slot offset (same buffer as slot count) */
+	a->slot_offset_address = a->slot_boid_count_address;
 }
 
 void create_scene_buffer(t_app *a)

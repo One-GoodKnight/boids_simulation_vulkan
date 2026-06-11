@@ -18,4 +18,6 @@ void upload_mesh(t_app *a);
 void upload_boids(t_app *a, uint32_t count);
 void upload_scene(t_app *a);
 
+uint32_t next_pow2(uint32_t n);
+
 #endif
