@@ -1,7 +1,7 @@
 #ifndef BOIDS_H
 # define BOIDS_H
 
-# define MAX_DISTANCE 120.0f
+# define MAX_DISTANCE 1000.0f
 
 // SPEED
 # define BOID_START_VEL 8.0f
