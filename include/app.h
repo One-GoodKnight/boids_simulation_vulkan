@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 14:35:56 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 17:20:16 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -121,11 +121,17 @@ typedef struct s_app {
 	VkBuffer          slot_boid_count_buffer;   /* how many boids per slot */
     VkDeviceMemory    slot_boid_count_memory;
     VkDeviceAddress   slot_boid_count_address;
+
+	VkBuffer          slot_offset_buffer;   /* at what offset in the sorted boids buffer the slot starts */
+    VkDeviceMemory    slot_offset_memory;
+    VkDeviceAddress   slot_offset_address;
+
+	VkBuffer          slot_cursor_buffer;   /* copy of slot_offset that we will modify during the creation of sorted_boid */
+	VkDeviceMemory    slot_cursor_memory;
+	VkDeviceAddress   slot_cursor_address;
+
 	uint32_t          slot_count;
 	uint32_t          slot_count_padded;
-
-    VkDeviceAddress   slot_offset_address;   /* at what offset in the sorted boids buffer the slot starts */
-	                                         /* same address as slot_boid_count (algo reuses the buffer)  */
 
 	VkPipeline        pipeline_compute_boid_slot;
 	VkPipeline        pipeline_compute_slot_boid_count;

@@ -1,11 +1,253 @@
 [
   {
+    "file": "src/load_files/load_gltf_file.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/load_files/load_gltf_file.o",
+      "src/load_files/load_gltf_file.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/load_files/load_gltf_file.o"
+  },
+  {
+    "file": "src/load_files/load_spirv_file.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/load_files/load_spirv_file.o",
+      "src/load_files/load_spirv_file.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/load_files/load_spirv_file.o"
+  },
+  {
+    "file": "src/vulkan/BDA/create_buffer.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/BDA/create_buffer.o",
+      "src/vulkan/BDA/create_buffer.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/BDA/create_buffer.o"
+  },
+  {
+    "file": "src/vulkan/BDA/upload.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/BDA/upload.o",
+      "src/vulkan/BDA/upload.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/BDA/upload.o"
+  },
+  {
+    "file": "src/vulkan/bindless.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/bindless.o",
+      "src/vulkan/bindless.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/bindless.o"
+  },
+  {
+    "file": "src/vulkan/depth.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/depth.o",
+      "src/vulkan/depth.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/depth.o"
+  },
+  {
+    "file": "src/vulkan/device.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/device.o",
+      "src/vulkan/device.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/device.o"
+  },
+  {
+    "file": "src/vulkan/frame.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/frame.o",
+      "src/vulkan/frame.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/frame.o"
+  },
+  {
+    "file": "src/vulkan/instance.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/instance.o",
+      "src/vulkan/instance.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/instance.o"
+  },
+  {
+    "file": "src/vulkan/pipeline.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/pipeline.o",
+      "src/vulkan/pipeline.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/pipeline.o"
+  },
+  {
+    "file": "src/vulkan/swapchain.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/vulkan/swapchain.o",
+      "src/vulkan/swapchain.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/vulkan/swapchain.o"
+  },
+  {
+    "file": "src/camera.c",
+    "arguments": [
+      "/usr/bin/cc",
+      "-Wall",
+      "-Wextra",
+      "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
+      "-Iinclude",
+      "-MMD",
+      "-MP",
+      "-c",
+      "-o",
+      ".build/camera.o",
+      "src/camera.c"
+    ],
+    "directory": "/home/night/projects/Vulkan",
+    "output": ".build/camera.o"
+  },
+  {
     "file": "src/main.c",
     "arguments": [
       "/usr/bin/cc",
       "-Wall",
       "-Wextra",
       "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
       "-Iinclude",
       "-MMD",
       "-MP",
@@ -18,21 +260,23 @@
     "output": ".build/main.o"
   },
   {
-    "file": "src/read_file.c",
+    "file": "src/spatial_hash_grid.c",
     "arguments": [
       "/usr/bin/cc",
       "-Wall",
       "-Wextra",
       "-g3",
+      "-DDEBUG",
+      "-DWIREFRAMEO",
       "-Iinclude",
       "-MMD",
       "-MP",
       "-c",
       "-o",
-      ".build/read_file.o",
-      "src/read_file.c"
+      ".build/spatial_hash_grid.o",
+      "src/spatial_hash_grid.c"
     ],
     "directory": "/home/night/projects/Vulkan",
-    "output": ".build/read_file.o"
+    "output": ".build/spatial_hash_grid.o"
   }
 ]

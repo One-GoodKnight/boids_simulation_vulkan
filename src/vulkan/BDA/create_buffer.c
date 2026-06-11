@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/10 19:09:52 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 14:32:38 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 17:24:23 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -70,7 +70,7 @@ void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
 
 void create_spatial_hash_buffers(t_app *a)
 {
-	/* boid slot */
+	/* boid_slot */
 	create_buffer(a, sizeof(uint32_t) * a->boid_count,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -83,22 +83,43 @@ void create_spatial_hash_buffers(t_app *a)
     };
     a->boid_slot_address = vkGetBufferDeviceAddress(a->device, &bdai);
 
-	/* slot count */
-	/* power of 2 for blelloch prefix sum algo */
+	/* slot_boid_count */
 	a->slot_count = a->boid_count * SPATIAL_HASH_GRID_SLOT_FACTOR;
+	/* power of 2 for blelloch prefix sum algo */
 	a->slot_count_padded = next_pow2(a->slot_count);
 	create_buffer(a, sizeof(uint32_t) * a->slot_count_padded,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT   |
-			VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+			VK_BUFFER_USAGE_2_TRANSFER_DST_BIT          |
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			true, &a->slot_boid_count_buffer, &a->slot_boid_count_memory);
 
 	bdai.buffer = a->slot_boid_count_buffer;
     a->slot_boid_count_address = vkGetBufferDeviceAddress(a->device, &bdai);
 
-	/* slot offset (same buffer as slot count) */
-	a->slot_offset_address = a->slot_boid_count_address;
+	/* slot_offset */
+	create_buffer(a, sizeof(uint32_t) * a->slot_count_padded,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT   |
+			VK_BUFFER_USAGE_2_TRANSFER_DST_BIT          |
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			true, &a->slot_offset_buffer, &a->slot_offset_memory);
+
+	bdai.buffer = a->slot_offset_buffer;
+    a->slot_offset_address = vkGetBufferDeviceAddress(a->device, &bdai);
+
+	/* slot_cursor */
+	create_buffer(a, sizeof(uint32_t) * a->slot_count_padded,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT   |
+			VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			true, &a->slot_cursor_buffer, &a->slot_cursor_memory);
+
+	bdai.buffer = a->slot_cursor_buffer;
+    a->slot_cursor_address = vkGetBufferDeviceAddress(a->device, &bdai);
 }
 
 void create_scene_buffer(t_app *a)
