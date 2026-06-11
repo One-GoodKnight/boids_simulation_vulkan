@@ -147,6 +147,11 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 		}
 	}
 
+	// favorise horizontal movement
+	separation.y *= 0.9f;
+	alignment.y *= 0.9f;
+	cohesion.y *= 0.9f;
+
 	b.velocity += separation * separation_force * dt;
 
 	if (align_count > 0)
