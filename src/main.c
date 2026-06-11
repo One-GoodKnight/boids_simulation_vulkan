@@ -143,6 +143,8 @@ static int draw_frame(t_app *a, float dt)
 		.boid_slot_buffer = a->boid_slot_address,
 		.slot_boid_count_buffer = a->slot_boid_count_address,
 		.slot_offset_buffer = a->slot_offset_address,
+		.slot_cursor_buffer = a->slot_cursor_address,
+		.sorted_boid_buffer = a->sorted_boid_address,
 		.boid_count = a->boid_count,
 		.slot_count = a->slot_count,
 		.slot_count_padded = a->slot_count_padded,
@@ -150,7 +152,7 @@ static int draw_frame(t_app *a, float dt)
 		.stride = 0
 	};
 
-	/* Compute - boid slot */
+	/* Compute - boid_slot */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_boid_slot);
 	vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
 					   VK_SHADER_STAGE_COMPUTE_BIT,
@@ -161,7 +163,7 @@ static int draw_frame(t_app *a, float dt)
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
-	/* Compute - slot count */
+	/* Compute - slot_count */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_boid_count);
 
 	vkCmdFillBuffer(f->cmd, a->slot_boid_count_buffer, 0, VK_WHOLE_SIZE, 0);
@@ -176,7 +178,7 @@ static int draw_frame(t_app *a, float dt)
 
 	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
 	/* Compute - copy slot_boid_count_buffer to slot_offset_buffer */
 	VkBufferCopy region = {
@@ -190,7 +192,7 @@ static int draw_frame(t_app *a, float dt)
     VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 
-	/* Compute - blelloch upsweep */
+	/* Compute - slot_offset blelloch upsweep */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_offset_upsweep);
 
 	for (uint32_t stride = 1; stride < a->slot_count_padded; stride *= 2)
@@ -219,7 +221,7 @@ static int draw_frame(t_app *a, float dt)
 		VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
 		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 
-	/* Compute - blelloch downsweep */
+	/* Compute - slot_offset blelloch downsweep */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_offset_downsweep);
 
 	for (uint32_t stride = a->slot_count_padded / 2; stride >= 1; stride /= 2)
@@ -235,6 +237,28 @@ static int draw_frame(t_app *a, float dt)
 		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
 		VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 	}
+
+	buffer_barrier(a, f->cmd, a->slot_offset_buffer,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+
+	/* Compute - copy slot_offset_buffer to slot_cursor_buffer */
+	vkCmdCopyBuffer(f->cmd, a->slot_offset_buffer, a->slot_cursor_buffer, 1, &region);
+
+	buffer_barrier(a, f->cmd, a->slot_cursor_buffer,
+    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+
+	/* Compute - sorted_boid */
+	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_sorted_boid);
+	vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
+					   VK_SHADER_STAGE_COMPUTE_BIT,
+					   0, sizeof(t_push_constants_compute_spatial_hash), &shgpc);
+	vkCmdDispatch(f->cmd, (a->boid_count + 63) / 64, 1, 1);
+
+	buffer_barrier(a, f->cmd, a->sorted_boid_buffer,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
 	/* Compute - update boids */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute);
@@ -448,7 +472,8 @@ int main(void)
 		"assets/shaders/spatial_hash_grid/boids_compute_boid_slot.comp.spv",
 		"assets/shaders/spatial_hash_grid/boids_compute_slot_boid_count.comp.spv",
 		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_upsweep.comp.spv",
-		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_downsweep.comp.spv"
+		"assets/shaders/spatial_hash_grid/boids_compute_slot_offset_downsweep.comp.spv",
+		"assets/shaders/spatial_hash_grid/boids_compute_sorted_boid.comp.spv"
 	);
 	create_compute_pipeline(&a, "assets/shaders/boids_compute.comp.spv");
 	create_graphics_pipeline(&a);
@@ -518,6 +543,7 @@ int main(void)
 	vkDestroyPipelineLayout(a.device, a.pipeline_graphics_layout, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute,        NULL);
 	vkDestroyPipelineLayout(a.device, a.pipeline_compute_layout, NULL);
+	vkDestroyPipeline      (a.device, a.pipeline_compute_sorted_boid, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_offset_downsweep, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_offset_upsweep, NULL);
 	vkDestroyPipeline      (a.device, a.pipeline_compute_slot_boid_count, NULL);
@@ -535,6 +561,8 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
+	vkFreeMemory   (a.device, a.sorted_boid_memory, NULL);
+	vkDestroyBuffer(a.device, a.sorted_boid_buffer, NULL);
 	vkFreeMemory   (a.device, a.slot_cursor_memory, NULL);
 	vkDestroyBuffer(a.device, a.slot_cursor_buffer, NULL);
 	vkFreeMemory   (a.device, a.slot_offset_memory, NULL);

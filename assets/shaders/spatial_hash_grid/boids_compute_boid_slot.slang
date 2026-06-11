@@ -12,6 +12,8 @@ struct push_constants {
 	uint64_t boid_slot_buffer;
 	uint64_t slot_boid_count_buffer;
 	uint64_t slot_offset_buffer;
+	uint64_t slot_cursor_buffer;
+	uint64_t sorted_boid_buffer;
 
 	uint32_t boid_count;
 

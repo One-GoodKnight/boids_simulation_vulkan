@@ -7,8 +7,9 @@ void create_compute_spatial_hash_pipelines(
 	t_app *a,
 	const char *boid_slot_path,
 	const char *slot_count_path,
-	const char *slot_offset_upsweep,
-	const char *slot_offset_downsweep
+	const char *slot_offset_upsweep_path,
+	const char *slot_offset_downsweep_path,
+	const char *sorted_boid_path
 );
 void create_compute_pipeline(t_app *a, const char *path);
 void create_graphics_pipeline(t_app *a);

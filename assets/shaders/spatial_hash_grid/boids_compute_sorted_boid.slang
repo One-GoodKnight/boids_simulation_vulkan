@@ -29,19 +29,17 @@ struct push_constants {
 [numthreads(64, 1, 1)]
 void compute_main(uint3 tid : SV_DispatchThreadID)
 {
-	uint32_t *slot_offset = (uint32_t *)pc.slot_offset_buffer;
+	uint32_t *boid_slot = (uint32_t *)pc.boid_slot_buffer;
+	uint32_t *slot_cursor = (uint32_t *)pc.slot_cursor_buffer;
+	uint32_t *sorted_boid = (uint32_t *)pc.sorted_boid_buffer;
 
-	uint32_t slot_count_padded = (uint32_t)pc.slot_count_padded;
+	uint32_t boid_count = (uint32_t)pc.boid_count;
 
-	uint32_t stride = (uint32_t)pc.stride;
+	if (tid.x >= boid_count) return;
 
-	uint32_t k = tid.x * stride * 2;
-	uint32_t left = k + stride - 1;
-	uint32_t right = k + stride * 2 - 1;
+	uint32_t slot = boid_slot[tid.x];
+	uint32_t pos;
+	InterlockedAdd(slot_cursor[slot], 1, pos);
 
-	if (right >= slot_count_padded) return;
-
-	uint32_t temp = slot_offset[left];
-	slot_offset[left] = slot_offset[right];
-	slot_offset[right] += temp;
+	sorted_boid[pos] = tid.x;
 }

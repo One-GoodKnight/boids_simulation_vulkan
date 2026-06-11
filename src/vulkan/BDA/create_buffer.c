@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/10 19:09:52 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 17:24:23 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 17:44:47 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -120,6 +120,16 @@ void create_spatial_hash_buffers(t_app *a)
 
 	bdai.buffer = a->slot_cursor_buffer;
     a->slot_cursor_address = vkGetBufferDeviceAddress(a->device, &bdai);
+
+	/* sorted_boid */
+	create_buffer(a, sizeof(uint32_t) * a->boid_count,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT          |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			true, &a->sorted_boid_buffer, &a->sorted_boid_memory);
+
+	bdai.buffer = a->sorted_boid_buffer;
+    a->sorted_boid_address = vkGetBufferDeviceAddress(a->device, &bdai);
 }
 
 void create_scene_buffer(t_app *a)

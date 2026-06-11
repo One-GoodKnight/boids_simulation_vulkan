@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:20:27 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 14:36:35 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 18:22:54 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,14 +55,15 @@ void create_compute_spatial_hash_pipelines(
 	t_app *a,
 	const char *boid_slot_path,
 	const char *slot_boid_count_path,
-	const char *slot_offset_upsweep,
-	const char *slot_offset_downsweep
+	const char *slot_offset_upsweep_path,
+	const char *slot_offset_downsweep_path,
+	const char *sorted_boid_path
 )
 {
 	VkPushConstantRange pc_range = {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
         .offset     = 0,
-        .size       = sizeof(t_push_constants_compute),
+        .size       = sizeof(t_push_constants_compute_spatial_hash),
     };
     a->pipeline_compute_spatial_hash_grid_layout = create_pipeline_layout(a->device, 0, NULL, 1, &pc_range);
 
@@ -85,15 +86,20 @@ void create_compute_spatial_hash_pipelines(
     VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_slot_boid_count));
     vkDestroyShaderModule(a->device, slot_boid_count_module, NULL);
 
-	VkShaderModule slot_offset_upsweep_module = create_shader_module(a, slot_offset_upsweep);
+	VkShaderModule slot_offset_upsweep_module = create_shader_module(a, slot_offset_upsweep_path);
 	ci.stage.module = slot_offset_upsweep_module;
     VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_slot_offset_upsweep));
     vkDestroyShaderModule(a->device, slot_offset_upsweep_module, NULL);
 
-	VkShaderModule slot_offset_downsweep_module = create_shader_module(a, slot_offset_downsweep);
+	VkShaderModule slot_offset_downsweep_module = create_shader_module(a, slot_offset_downsweep_path);
 	ci.stage.module = slot_offset_downsweep_module;
     VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_slot_offset_downsweep));
     vkDestroyShaderModule(a->device, slot_offset_downsweep_module, NULL);
+
+	VkShaderModule sorted_boid_module = create_shader_module(a, sorted_boid_path);
+	ci.stage.module = sorted_boid_module;
+    VK_CHECK(vkCreateComputePipelines(a->device, VK_NULL_HANDLE, 1, &ci, NULL, &a->pipeline_compute_sorted_boid));
+    vkDestroyShaderModule(a->device, sorted_boid_module, NULL);
 }
 
 void create_compute_pipeline(t_app *a, const char *path)

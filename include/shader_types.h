@@ -22,7 +22,9 @@ typedef struct s_push_constants_compute_spatial_hash {
 
 	uint64_t boid_slot_buffer;
 	uint64_t slot_boid_count_buffer;
-	uint64_t slot_offset_buffer;   /* same as slot_boid_count_buffer */
+	uint64_t slot_offset_buffer;
+	uint64_t slot_cursor_buffer;
+	uint64_t sorted_boid_buffer;
 
 	uint32_t boid_count;
 
@@ -36,6 +38,15 @@ typedef struct s_push_constants_compute_spatial_hash {
 /* COMPUTE */
 typedef struct s_push_constants_compute {
     uint64_t scene;
+
+	/* spatial hash grid */
+	uint64_t boid_slot_buffer;
+	uint64_t slot_boid_count_buffer;
+	uint64_t slot_offset_buffer;
+	uint64_t sorted_boid_buffer;
+	uint32_t slot_count;
+	float    cell_size;
+	/* ----------------- */
 
 	float    dt;
 
