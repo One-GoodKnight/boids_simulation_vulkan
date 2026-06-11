@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/09 13:27:46 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 17:42:00 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 20:23:46 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -99,6 +99,10 @@ typedef struct s_app {
 	VkBuffer          scene_buffer;
 	VkDeviceMemory    scene_memory;
 	VkDeviceAddress   scene_address;
+
+	VkBuffer          debug_buffer;
+	VkDeviceMemory    debug_memory;
+	VkDeviceAddress   debug_address;
 
 	Mesh              mesh;
 

@@ -12,6 +12,8 @@ void upload_buffer(t_app *a, VkDeviceMemory memory,
 
 void create_spatial_hash_buffers(t_app *a);
 
+void create_debug_buffer(t_app *a);
+
 void create_scene_buffer(t_app *a);
 
 void upload_mesh(t_app *a);

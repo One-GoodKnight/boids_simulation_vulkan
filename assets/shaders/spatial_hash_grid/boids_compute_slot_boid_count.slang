@@ -7,6 +7,7 @@ struct scene_data {
     uint64_t boid_buffer;
 };
 struct push_constants {
+    uint64_t debug_buffer;
     uint64_t scene;
 
 	uint64_t boid_slot_buffer;
@@ -29,6 +30,8 @@ struct push_constants {
 [numthreads(64, 1, 1)]
 void compute_main(uint3 tid : SV_DispatchThreadID)
 {
+	uint32_t *debug = (uint32_t *)pc.debug_buffer;
+
 	uint32_t *boid_slot = (uint32_t *)pc.boid_slot_buffer;
 	uint32_t *slot_boid_count = (uint32_t *)pc.slot_boid_count_buffer;
 

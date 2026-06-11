@@ -2,10 +2,12 @@
 # define CAMERA_H
 
 # include <SDL3/SDL_keycode.h>
+
+# include "boids.h"
 # include "cglm/cglm.h"
 
 # define SENSITIVITY 0.01f
-# define CAMERA_SPEED 70
+# define CAMERA_SPEED (MAX_DISTANCE / 2)
 # define FOV 70.0f
 
 # define OUTLINE 0.02f

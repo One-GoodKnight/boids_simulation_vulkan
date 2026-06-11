@@ -1,5 +1,4 @@
 #include <SDL3/SDL_events.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -139,6 +138,7 @@ static int draw_frame(t_app *a, float dt)
 
 	/* Compute - spatial hash grid */
 	t_push_constants_compute_spatial_hash shgpc = {
+		.debug_buffer = a->debug_address,
 		.scene = a->scene_address,
 		.boid_slot_buffer = a->boid_slot_address,
 		.slot_boid_count_buffer = a->slot_boid_count_address,
@@ -163,13 +163,13 @@ static int draw_frame(t_app *a, float dt)
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
-	/* Compute - slot_count */
+	/* Compute - slot_boid_count */
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute_slot_boid_count);
 
 	vkCmdFillBuffer(f->cmd, a->slot_boid_count_buffer, 0, VK_WHOLE_SIZE, 0);
 	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
     VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT);
+    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 
 	vkCmdPushConstants(f->cmd, a->pipeline_compute_spatial_hash_grid_layout,
 					   VK_SHADER_STAGE_COMPUTE_BIT,
@@ -178,7 +178,7 @@ static int draw_frame(t_app *a, float dt)
 
 	buffer_barrier(a, f->cmd, a->slot_boid_count_buffer,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+    VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
 
 	/* Compute - copy slot_boid_count_buffer to slot_offset_buffer */
 	VkBufferCopy region = {
@@ -186,6 +186,12 @@ static int draw_frame(t_app *a, float dt)
 		.dstOffset = 0,
 		.size      = sizeof(uint32_t) * a->slot_count_padded,
 	};
+	vkCmdFillBuffer(f->cmd, a->slot_offset_buffer, 0, VK_WHOLE_SIZE, 0);
+	buffer_barrier(a, f->cmd, a->slot_offset_buffer,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT);
+	vkCmdCopyBuffer(f->cmd, a->slot_boid_count_buffer, a->slot_offset_buffer, 1, &region);
+
 	vkCmdCopyBuffer(f->cmd, a->slot_boid_count_buffer, a->slot_offset_buffer, 1, &region);
 
 	buffer_barrier(a, f->cmd, a->slot_offset_buffer,
@@ -264,7 +270,14 @@ static int draw_frame(t_app *a, float dt)
 	vkCmdBindPipeline(f->cmd, VK_PIPELINE_BIND_POINT_COMPUTE, a->pipeline_compute);
 
 	t_push_constants_compute cpc = {
+		.debug_buffer = a->debug_address,
 		.scene = a->scene_address,
+		.boid_slot_buffer = a->boid_slot_address,
+		.slot_boid_count_buffer = a->slot_boid_count_address,
+		.slot_offset_buffer = a->slot_offset_address,
+		.sorted_boid_buffer = a->sorted_boid_address,
+		.slot_count = a->slot_count,
+		.cell_size = SPATIAL_HASH_GRID_SIZE,
 		.dt = dt,
 		.boid_count = a->boid_count,
 		.max_dist = MAX_DISTANCE,
@@ -461,9 +474,10 @@ int main(void)
 	create_swapchain(&a);
 	create_depth_buffer(&a);
 	create_scene_buffer(&a);
+	create_debug_buffer(&a);
 	a.mesh = load_mesh_from_gltf_file("assets/models/cone.glb");
 	upload_mesh(&a);
-	upload_boids(&a, 10000);
+	upload_boids(&a, 1000000);
 	upload_scene(&a);
 	create_spatial_hash_buffers(&a);
 	create_bindless_descriptors(&a);
@@ -489,7 +503,7 @@ int main(void)
 		uint64_t cur_time = SDL_GetTicksNS();
 		dt = (float)(cur_time - last_time) / 1000000000.0f;
 		last_time = cur_time;
-		// printf("FPS: %d\n", (int)(1.0f / dt));
+		printf("FPS: %d\n", (int)(1.0f / dt));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
@@ -521,6 +535,8 @@ int main(void)
 			dt *= 5;
 		else if (keyboard_state[SDL_SCANCODE_G])
 			dt *= 20;
+		else if (keyboard_state[SDL_SCANCODE_H])
+			dt *= 100;
 
 		SDL_WindowFlags wf = SDL_GetWindowFlags(a.window);
 		if (wf & SDL_WINDOW_MINIMIZED) { SDL_Delay(16); continue; }
@@ -561,6 +577,11 @@ int main(void)
 	vkDestroyDescriptorPool      (a.device, a.bindless_pool,   NULL);
 	vkDestroyDescriptorSetLayout (a.device, a.bindless_layout, NULL);
 
+	if (a.debug_address)
+	{
+		vkFreeMemory   (a.device, a.debug_memory, NULL);
+		vkDestroyBuffer(a.device, a.debug_buffer, NULL);
+	}
 	vkFreeMemory   (a.device, a.sorted_boid_memory, NULL);
 	vkDestroyBuffer(a.device, a.sorted_boid_buffer, NULL);
 	vkFreeMemory   (a.device, a.slot_cursor_memory, NULL);

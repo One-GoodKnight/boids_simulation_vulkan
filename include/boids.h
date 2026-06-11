@@ -1,7 +1,7 @@
 #ifndef BOIDS_H
 # define BOIDS_H
 
-# define MAX_DISTANCE 120.0f
+# define MAX_DISTANCE 1500.0f
 
 // SPEED
 # define BOID_START_VEL 8.0f
@@ -17,7 +17,7 @@
 # define BOID_ALIGNMENT_FORCE (0.5f * BOID_START_VEL)
 
 // COHESION
-# define BOID_COHESION_RADIUS 15.0f
+# define BOID_COHESION_RADIUS 10.0f
 # define BOID_COHESION_FORCE (0.2f * BOID_START_VEL)
 
 // BORDER

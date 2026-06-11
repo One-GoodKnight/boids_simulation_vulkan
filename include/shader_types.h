@@ -18,6 +18,7 @@ typedef struct s_boid {
 
 /* SPATIAL HASH GRID */
 typedef struct s_push_constants_compute_spatial_hash {
+	uint64_t debug_buffer;
     uint64_t scene;
 
 	uint64_t boid_slot_buffer;
@@ -37,6 +38,7 @@ typedef struct s_push_constants_compute_spatial_hash {
 
 /* COMPUTE */
 typedef struct s_push_constants_compute {
+	uint64_t debug_buffer;
     uint64_t scene;
 
 	/* spatial hash grid */

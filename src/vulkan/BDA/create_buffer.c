@@ -6,7 +6,7 @@
 /*   By: aginiaux <aginiaux@student.42lyon.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/10 19:09:52 by aginiaux          #+#    #+#             */
-/*   Updated: 2026/06/11 17:44:47 by aginiaux         ###   ########lyon.fr   */
+/*   Updated: 2026/06/11 22:18:03 by aginiaux         ###   ########lyon.fr   */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,7 +56,7 @@ void create_buffer(t_app *a, VkDeviceSize size, VkBufferUsageFlags usage,
     };
 
 	// TEMP DEBUG
-	properties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	// properties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
     VkMemoryAllocateInfo mai = {
         .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -130,6 +130,24 @@ void create_spatial_hash_buffers(t_app *a)
 
 	bdai.buffer = a->sorted_boid_buffer;
     a->sorted_boid_address = vkGetBufferDeviceAddress(a->device, &bdai);
+
+	printf("slot_offset_buffer size: %zu bytes\n", sizeof(uint32_t) * a->slot_count_padded);
+	printf("slot_count=%u slot_count_padded=%u\n", a->slot_count, a->slot_count_padded);
+}
+
+void create_debug_buffer(t_app *a)
+{
+	create_buffer(a, sizeof(uint32_t) * 1024,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT         |
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			true, &a->debug_buffer, &a->debug_memory);
+
+	VkBufferDeviceAddressInfo bdai = {
+        .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .buffer = a->debug_buffer,
+    };
+    a->debug_address = vkGetBufferDeviceAddress(a->device, &bdai);
 }
 
 void create_scene_buffer(t_app *a)

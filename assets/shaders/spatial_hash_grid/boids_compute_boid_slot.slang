@@ -1,3 +1,5 @@
+import hash_cell;
+
 struct boid {
     float3 position;
     float3 velocity;
@@ -7,6 +9,7 @@ struct scene_data {
     uint64_t boid_buffer;
 };
 struct push_constants {
+    uint64_t debug_buffer;
     uint64_t scene;
 
 	uint64_t boid_slot_buffer;
@@ -24,14 +27,6 @@ struct push_constants {
 	uint32_t stride;
 };
 [[vk::push_constant]] push_constants pc;
-
-uint hash_cell(int3 cell, uint32_t slot_count)
-{
-    uint x = (uint)cell.x * 2185031351u;
-    uint y = (uint)cell.y * 4232452283u;
-    uint z = (uint)cell.z * 3905402947u;
-    return (x ^ y ^ z) % slot_count;
-}
 
 [shader("compute")]
 [numthreads(64, 1, 1)]

@@ -1,3 +1,5 @@
+import spatial_hash_grid.hash_cell;
+
 struct vertex {
     float3 position;
     float2 uv;
@@ -11,7 +13,17 @@ struct scene_data {
     uint64_t boid_buffer;
 };
 struct push_constants {
+	uint64_t debug_buffer;
     uint64_t scene;
+
+	/* spatial hash grid */
+	uint64_t boid_slot_buffer;
+	uint64_t slot_boid_count_buffer;
+	uint64_t slot_offset_buffer;
+	uint64_t sorted_boid_buffer;
+	uint32_t slot_count;
+	float    cell_size;
+	/* ----------------- */
 
 	float    dt;
 
@@ -39,7 +51,17 @@ struct push_constants {
 [numthreads(64, 1, 1)]
 void compute_main(uint3 tid : SV_DispatchThreadID)
 {
+	uint32_t *debug = (uint32_t *)pc.debug_buffer;
+
     scene_data *scene = (scene_data *)pc.scene;
+
+	/* spatial hash grid */
+	uint32_t *slot_boid_count = (uint32_t *)pc.slot_boid_count_buffer;
+	uint32_t *slot_offset = (uint32_t *)pc.slot_offset_buffer;
+	uint32_t *sorted_boid = (uint32_t *)pc.sorted_boid_buffer;
+	uint32_t slot_count = (uint32_t)pc.slot_count;
+	float cell_size = (float)pc.cell_size;
+	/* ----------------- */
 
 	float dt = (float)pc.dt;
 
@@ -72,32 +94,56 @@ void compute_main(uint3 tid : SV_DispatchThreadID)
 	uint32_t align_count = 0;
 	uint32_t cohesion_count = 0;
 
-	for (uint32_t i = 0; i < boid_count; i++)
-	{
-		if (i == tid.x)
-			continue;
+	int cur_cell_x = (int)floor(b.position.x / cell_size);
+	int cur_cell_y = (int)floor(b.position.y / cell_size);
+	int cur_cell_z = (int)floor(b.position.z / cell_size);
 
-		boid ob = boids[i];
-		float3 diff = ob.position - b.position;
-		float dist = length(diff);
-		if (dist < 0.00001f)
-			continue;
+	for (int z = -1; z <= 1; z++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int x = -1; x <= 1; x++)
+            {
+				uint32_t slot = hash_cell(int3(cur_cell_x + x, cur_cell_y + y, cur_cell_z + z), slot_count);
 
-		float3 dir_ob = normalize(diff);
+				uint32_t count = slot_boid_count[slot];
+				if (count == 0)
+					continue;
 
-		if (dist <= separation_radius)
-			separation += -dir_ob * (1.0f / dist);
+				uint32_t start_offset = slot_offset[slot];
 
-		if (dist <= alignment_radius)
-		{
-			alignment += normalize(ob.velocity);
-			align_count += 1;
-		}
+				for (uint32_t i = 0; i < count; i++)
+				{
+					uint32_t neighbor_boid_id = sorted_boid[start_offset + i];
 
-		if (dist <= cohesion_radius)
-		{
-			cohesion += ob.position;
-			cohesion_count += 1;
+					if (neighbor_boid_id == tid.x)
+						continue;
+
+					boid ob = boids[neighbor_boid_id];
+
+					float3 diff = ob.position - b.position;
+					float dist = length(diff);
+					if (dist < 0.00001f)
+						continue;
+
+					float3 dir_ob = normalize(diff);
+
+					if (dist <= separation_radius)
+						separation += -dir_ob * (1.0f / dist);
+
+					if (dist <= alignment_radius)
+					{
+						alignment += normalize(ob.velocity);
+						align_count += 1;
+					}
+
+					if (dist <= cohesion_radius)
+					{
+						cohesion += ob.position;
+						cohesion_count += 1;
+					}
+				}
+			}
 		}
 	}
 
