@@ -1,4 +1,4 @@
-[![1 million boids simulation Vulkan](https://youtu.be/hE5USJbUJw8)
+![1 million boids simulation Vulkan](https://youtu.be/hE5USJbUJw8)
   
 Boids  
 - separation: steer to avoid crowding local flockmates  
