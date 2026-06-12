@@ -8,7 +8,10 @@ SwapChain - multi buffers, sync, os requirements
 profiling
 SDL_VIDEO_DRIVER=x11 qrenderdoc
 
-blelloch
+blelloch  
+upsweep  
 ![upsweep](https://developer.download.nvidia.com/books/gpugems3/39fig03.jpg)
-![downsweep]()
+
+downsweep  
+![downsweep](https://developer.download.nvidia.com/books/gpugems3/39fig04.jpg)
 
